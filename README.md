@@ -34,3 +34,6 @@ BibTeX entry:<br/>
 Dr. Shantanu Shahane, Postdoctoral Research Associate<br/>
 Dr. Surya Pratap Vanka, Professor Emeritus<br/>
 Mechanical Science and Engineering, University of Illinois at Urbana-Champaign
+
+## License:
+MeMPhyS is published under [MIT License](https://github.com/shahaneshantanu/memphys/blob/main/LICENSE)

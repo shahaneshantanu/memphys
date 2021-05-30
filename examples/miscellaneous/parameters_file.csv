@@ -1,0 +1,38 @@
+poly_deg,3
+phs_deg,3
+cloud_size_multiplier,2.0
+nt,1000000
+Courant,0.8
+solver_type,eigen_ilu_bicgstab
+steady_tolerance,1E-5
+solver_tolerance,1E-8
+euclid_precond_level_hypre,50
+gmres_kdim,20
+precond_droptol,1E-4
+n_iter,1000
+
+
+
+////////////////////////
+poly_deg: degree of appended polynomial: integer in range [2, 15]
+
+phs_deg: exponent of polyharmonic spline: integer with options: 3, 5, 7, 9, 11
+
+cloud_size_multiplier: float cloud_size=cloud_size_multiplier*(No. of appended polynomials) 
+(recommended: in range [1.5, 2.5])
+
+nt: No. of timesteps: positive integer
+
+Courant: [dt=2*Courant/lambda] where, lambda: sum of largest magnitude convection and diffusion eigen values
+
+solver_type: options: hypre_ilu_gmres, eigen_direct, eigen_ilu_bicgstab
+
+steady_tolerance: solved to steady state till [avg(abs(phi_new - phi_old))/dt < steady_tolerance] for all variables
+
+solver_tolerance: used in iterative solvers for absolute and relative residuals (recommended: less than steady_tolerance)
+
+gmres_kdim: dimension of Krylov subspace in GMRES solver
+
+precond_droptol: Drop tolerance for ILU or Euclid (in HYPRE) preconditioner
+
+n_iter: no. of iterations of the solver

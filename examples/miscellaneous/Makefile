@@ -1,5 +1,5 @@
 # Author: Dr. Shantanu Shahane
-OBJS = general_functions.o parameters.o points.o coefficient_computations.o cloud.o solver.o navier_stokes.o postprocessing_functions.o
+OBJS = general_functions.o parameters.o points.o coefficient_computations.o cloud.o solver.o postprocessing_functions.o
 CC = mpicxx
 DEBUG = -g
 HYPRE_DIR = ../../../C_libraries/hypre-2.11.1/src/hypre#HYPRE
@@ -28,9 +28,6 @@ solver.o : ../../header_files/solver.cpp ../../header_files/class.hpp ../../head
 coefficient_computations.o : ../../header_files/coefficient_computations.cpp ../../header_files/class.hpp ../../header_files/general_functions.hpp
 	$(CC) $(CFLAGS) ../../header_files/coefficient_computations.cpp
 
-navier_stokes.o : ../../header_files/navier_stokes.cpp ../../header_files/class.hpp ../../header_files/general_functions.hpp
-	$(CC) $(CFLAGS) ../../header_files/navier_stokes.cpp
-
 postprocessing_functions.o : ../../header_files/postprocessing_functions.cpp ../../header_files/class.hpp ../../header_files/general_functions.hpp
 	$(CC) $(CFLAGS) ../../header_files/postprocessing_functions.cpp
 
@@ -54,3 +51,6 @@ check_coeff : $(OBJS) check_coeff.o
 
 clean:
 	rm -f *.o out *.out
+rm_sim_files:
+	find . -maxdepth 1 ! -name 'parameters_file.csv' -name '*.csv' -delete
+	rm -f *.plt

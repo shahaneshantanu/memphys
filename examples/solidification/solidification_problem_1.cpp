@@ -11,10 +11,10 @@ int main(int argc, char *argv[])
     clock_t t0 = clock();
     double T_init = 1000.0, T_wall = 700.0;
     int tecplot_it_frequency = 100, temporal_order = 2;
-    // string meshfile = "/home/shantanu/Desktop/All Simulation Results/Meshless_Methods/CAD_mesh_files/solidification/Square/Square_n_20_unstruc.msh";
-    string meshfile = "/home/shantanu/Desktop/All Simulation Results/Meshless_Methods/CAD_mesh_files/solidification/complex_2D/mesh_n_15_r_5.msh";
-    // string meshfile = "/home/shantanu/Desktop/All Simulation Results/Meshless_Methods/CAD_mesh_files/solidification/shaft_holder/mesh_maxelem_3.msh";
-    // string meshfile = "/home/shantanu/Desktop/All Simulation Results/Meshless_Methods/CAD_mesh_files/solidification/mixer_pipe/mesh_maxelem_8.msh"; //does not work: gives memory fault in function "re_order_points(points, parameters)": not sure about reason
+    // string meshfile = "/media/shantanu/Data/All Simulation Results/Meshless_Methods/CAD_mesh_files/solidification/Square/Square_n_20_unstruc.msh";
+    string meshfile = "/media/shantanu/Data/All Simulation Results/Meshless_Methods/CAD_mesh_files/solidification/complex_2D/mesh_n_15_r_5.msh";
+    // string meshfile = "/media/shantanu/Data/All Simulation Results/Meshless_Methods/CAD_mesh_files/solidification/shaft_holder/mesh_maxelem_3.msh";
+    // string meshfile = "/media/shantanu/Data/All Simulation Results/Meshless_Methods/CAD_mesh_files/solidification/mixer_pipe/mesh_maxelem_8.msh"; //does not work: gives memory fault in function "re_order_points(points, parameters)": not sure about reason
     PARAMETERS parameters("parameters_file.csv", meshfile);
     int dim = parameters.dimension;
     parameters.Courant = parameters.Courant / ((double)temporal_order); //Adam-Bashforth has half stability than explicit Euler;
@@ -45,8 +45,10 @@ int main(int argc, char *argv[])
 
     clock_t clock_t1 = clock(), clock_t2 = clock();
     double T_max = 0.0;
-    solidification.write_tecplot_temporal_header(points, parameters);
-    solidification.write_tecplot_temporal_fields(points, parameters, T_new, fs_new, 0);
+    vector<string> variable_names{"T_new", "fs_new"};
+    vector<Eigen::VectorXd *> variable_pointers{&T_new, &fs_new};
+    write_tecplot_temporal_variables_header(points, parameters, variable_names);
+    write_tecplot_temporal_variables(points, parameters, variable_names, variable_pointers, 0);
     for (int it = 0; it < parameters.nt; it++)
     {
         solidification.single_timestep_2d(points, cloud, parameters, T_new, T_old, fs_new, fs_old, it);
@@ -60,7 +62,7 @@ int main(int argc, char *argv[])
         }
         if (tecplot_it_frequency > 0 && it > 0)
             if (it % tecplot_it_frequency == 0 || T_max < (solidification.Tsol - 5.0) || it == parameters.nt - 1)
-                solidification.write_tecplot_temporal_fields(points, parameters, T_new, fs_new, it);
+                write_tecplot_temporal_variables(points, parameters, variable_names, variable_pointers, it + 1);
         if (T_max < (solidification.Tsol - 5.0))
         {
             printf("\n\nTotal Solidification Time: %g seconds\n\n", ((double)it) * parameters.dt);

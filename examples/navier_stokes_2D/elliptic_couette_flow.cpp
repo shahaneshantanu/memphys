@@ -2,7 +2,6 @@
 //compile: time make elliptic_couette_flow
 //execute: time ./out
 #include "../../header_files/class.hpp"
-#include "../../header_files/navier_stokes.hpp"
 #include "../../header_files/postprocessing_functions.hpp"
 using namespace std;
 
@@ -10,7 +9,7 @@ int main(int argc, char *argv[])
 {
     MPI_Init(&argc, &argv);
     clock_t t0 = clock();
-    PARAMETERS parameters("parameters_file.csv", "/home/shantanu/Desktop/All Simulation Results/Meshless_Methods/CAD_mesh_files/hole_geometries/conc_circle_in_ellipse/annulus_opencasc_n_50.msh");
+    PARAMETERS parameters("parameters_file.csv", "/media/shantanu/Data/All Simulation Results/Meshless_Methods/CAD_mesh_files/hole_geometries/conc_circle_in_ellipse/annulus_opencasc_n_50.msh");
     int temporal_order = 1;
     parameters.Courant = parameters.Courant / ((double)temporal_order); //Adam-Bashforth has half stability than explicit Euler
 
@@ -43,7 +42,10 @@ int main(int argc, char *argv[])
     cout << "\nTime marching started\n\n";
     for (int it = 0; it < parameters.nt; it++)
     {
-        total_steady_err = fractional_step_1.single_timestep_2d(points, cloud, parameters, u_new, v_new, p_new, u_old, v_old, p_old, it);
+        fractional_step_1.single_timestep_2d(points, cloud, parameters, u_new, v_new, p_new, u_old, v_old, p_old, it);
+        total_steady_err = (u_new - u_old).lpNorm<1>() / (u_new.lpNorm<Eigen::Infinity>());
+        total_steady_err += (v_new - v_old).lpNorm<1>() / (v_new.lpNorm<Eigen::Infinity>());
+        total_steady_err = total_steady_err / (parameters.dimension * parameters.dt * u_new.size());
         double runtime = ((double)(clock() - clock_t2)) / CLOCKS_PER_SEC;
         if (runtime > 1.0 || it == 0 || it == 1 || it == parameters.nt - 1 || total_steady_err < parameters.steady_tolerance) //|| true
         {
@@ -64,5 +66,7 @@ int main(int argc, char *argv[])
     parameters.total_timer = ((double)(clock() - t0)) / CLOCKS_PER_SEC;
     write_simulation_details(points, cloud, parameters), write_iteration_details(parameters);
     write_navier_stokes_residuals_2D(points, parameters, u_new, v_new, p_new, "_residuals_new.csv");
-    write_navier_stokes_tecplot_2D(points, parameters, u_new, v_new, p_new);
+    vector<string> variable_names{"u_new", "v_new", "p_new"};
+    vector<Eigen::VectorXd *> variable_pointers{&u_new, &v_new, &p_new};
+    write_tecplot_steady_variables(points, parameters, variable_names, variable_pointers);
 }

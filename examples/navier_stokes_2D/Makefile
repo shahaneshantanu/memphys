@@ -1,5 +1,5 @@
 # Author: Dr. Shantanu Shahane
-OBJS = general_functions.o parameters.o points.o coefficient_computations.o cloud.o solver.o navier_stokes.o postprocessing_functions.o
+OBJS = general_functions.o parameters.o points.o coefficient_computations.o cloud.o solver.o fractional_step_1.o semi_implicit_split_solver.o implicit_scalar_transport_solver.o postprocessing_functions.o
 CC = mpicxx
 DEBUG = -g
 HYPRE_DIR = ../../../C_libraries/hypre-2.11.1/src/hypre#HYPRE
@@ -28,14 +28,21 @@ solver.o : ../../header_files/solver.cpp ../../header_files/class.hpp ../../head
 coefficient_computations.o : ../../header_files/coefficient_computations.cpp ../../header_files/class.hpp ../../header_files/general_functions.hpp
 	$(CC) $(CFLAGS) ../../header_files/coefficient_computations.cpp
 
-navier_stokes.o : ../../header_files/navier_stokes.cpp ../../header_files/class.hpp ../../header_files/general_functions.hpp
-	$(CC) $(CFLAGS) ../../header_files/navier_stokes.cpp
+fractional_step_1.o : ../../header_files/fractional_step_1.cpp ../../header_files/class.hpp ../../header_files/general_functions.hpp
+	$(CC) $(CFLAGS) ../../header_files/fractional_step_1.cpp
 
 postprocessing_functions.o : ../../header_files/postprocessing_functions.cpp ../../header_files/class.hpp ../../header_files/general_functions.hpp
 	$(CC) $(CFLAGS) ../../header_files/postprocessing_functions.cpp
 
 cloud.o : ../../header_files/cloud.cpp ../../header_files/class.hpp ../../header_files/general_functions.hpp
 	$(CC) $(CFLAGS) ../../header_files/cloud.cpp
+
+semi_implicit_split_solver.o : ../../header_files/semi_implicit_split_solver.cpp ../../header_files/class.hpp ../../header_files/general_functions.hpp
+	$(CC) $(CFLAGS) ../../header_files/semi_implicit_split_solver.cpp
+
+implicit_scalar_transport_solver.o : ../../header_files/implicit_scalar_transport_solver.cpp ../../header_files/class.hpp ../../header_files/general_functions.hpp
+	$(CC) $(CFLAGS) ../../header_files/implicit_scalar_transport_solver.cpp
+
 ########### Dependencies completed
 
 ########### Individual code files
@@ -49,6 +56,11 @@ couette_flow.o : couette_flow.cpp ../../header_files/class.hpp ../../header_file
 	$(CC) $(CFLAGS) $(LFLAGS) $(LIBS) -I $(INCLUDE) couette_flow.cpp
 couette_flow : $(OBJS) couette_flow.o
 	$(CC) $(PROFLAGS) -o out couette_flow.o $(OBJS) $(LIBS)
+
+couette_2_cylinders_ellipse.o : couette_2_cylinders_ellipse.cpp ../../header_files/class.hpp ../../header_files/general_functions.hpp
+	$(CC) $(CFLAGS) $(LFLAGS) $(LIBS) -I $(INCLUDE) couette_2_cylinders_ellipse.cpp
+couette_2_cylinders_ellipse : $(OBJS) couette_2_cylinders_ellipse.o
+	$(CC) $(PROFLAGS) -o out couette_2_cylinders_ellipse.o $(OBJS) $(LIBS)
 
 eccentric_couette_flow.o : eccentric_couette_flow.cpp ../../header_files/class.hpp ../../header_files/general_functions.hpp
 	$(CC) $(CFLAGS) $(LFLAGS) $(LIBS) -I $(INCLUDE) eccentric_couette_flow.cpp
@@ -70,17 +82,45 @@ channel_flow.o : channel_flow.cpp ../../header_files/class.hpp ../../header_file
 channel_flow : $(OBJS) channel_flow.o
 	$(CC) $(PROFLAGS) -o out channel_flow.o $(OBJS) $(LIBS)
 
+channel_flow_periodic.o : channel_flow_periodic.cpp ../../header_files/class.hpp ../../header_files/general_functions.hpp
+	$(CC) $(CFLAGS) $(LFLAGS) $(LIBS) -I $(INCLUDE) channel_flow_periodic.cpp
+channel_flow_periodic : $(OBJS) channel_flow_periodic.o
+	$(CC) $(PROFLAGS) -o out channel_flow_periodic.o $(OBJS) $(LIBS)
+
+bellow_periodic.o : bellow_periodic.cpp ../../header_files/class.hpp ../../header_files/general_functions.hpp
+	$(CC) $(CFLAGS) $(LFLAGS) $(LIBS) -I $(INCLUDE) bellow_periodic.cpp
+bellow_periodic : $(OBJS) bellow_periodic.o
+	$(CC) $(PROFLAGS) -o out bellow_periodic.o $(OBJS) $(LIBS)
+
 taylor_green_modified.o : taylor_green_modified.cpp ../../header_files/class.hpp ../../header_files/general_functions.hpp
 	$(CC) $(CFLAGS) $(LFLAGS) $(LIBS) -I $(INCLUDE) taylor_green_modified.cpp
 taylor_green_modified : $(OBJS) taylor_green_modified.o
 	$(CC) $(PROFLAGS) -o out taylor_green_modified.o $(OBJS) $(LIBS)
+
+taylor_green.o : taylor_green.cpp ../../header_files/class.hpp ../../header_files/general_functions.hpp
+	$(CC) $(CFLAGS) $(LFLAGS) $(LIBS) -I $(INCLUDE) taylor_green.cpp
+taylor_green : $(OBJS) taylor_green.o
+	$(CC) $(PROFLAGS) -o out taylor_green.o $(OBJS) $(LIBS)
 
 taylor_green_steady.o : taylor_green_steady.cpp ../../header_files/class.hpp ../../header_files/general_functions.hpp
 	$(CC) $(CFLAGS) $(LFLAGS) $(LIBS) -I $(INCLUDE) taylor_green_steady.cpp
 taylor_green_steady : $(OBJS) taylor_green_steady.o
 	$(CC) $(PROFLAGS) -o out taylor_green_steady.o $(OBJS) $(LIBS)
 
+bell_colella_JCP.o : bell_colella_JCP.cpp ../../header_files/class.hpp ../../header_files/general_functions.hpp
+	$(CC) $(CFLAGS) $(LFLAGS) $(LIBS) -I $(INCLUDE) bell_colella_JCP.cpp
+bell_colella_JCP : $(OBJS) bell_colella_JCP.o
+	$(CC) $(PROFLAGS) -o out bell_colella_JCP.o $(OBJS) $(LIBS)
+
+bell_colella_JCP_periodic.o : bell_colella_JCP_periodic.cpp ../../header_files/class.hpp ../../header_files/general_functions.hpp
+	$(CC) $(CFLAGS) $(LFLAGS) $(LIBS) -I $(INCLUDE) bell_colella_JCP_periodic.cpp
+bell_colella_JCP_periodic : $(OBJS) bell_colella_JCP_periodic.o
+	$(CC) $(PROFLAGS) -o out bell_colella_JCP_periodic.o $(OBJS) $(LIBS)
+
 ########### Individual code completed
 
 clean:
 	rm -f *.o out *.out
+rm_sim_files:
+	find . -maxdepth 1 ! -name 'parameters_file.csv' -name '*.csv' -delete
+	rm -f *.plt

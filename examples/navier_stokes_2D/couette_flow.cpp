@@ -2,7 +2,6 @@
 //compile: time make couette_flow
 //execute: time ./out
 #include "../../header_files/class.hpp"
-#include "../../header_files/navier_stokes.hpp"
 #include "../../header_files/postprocessing_functions.hpp"
 using namespace std;
 
@@ -10,9 +9,11 @@ int main(int argc, char *argv[])
 {
     MPI_Init(&argc, &argv);
     clock_t t0 = clock();
-    PARAMETERS parameters("parameters_file.csv", "/home/shantanu/Desktop/All Simulation Results/Meshless_Methods/CAD_mesh_files/hole_geometries/conc_circle_in_circle/annulus_opencasc_n_40.msh");
+    PARAMETERS parameters("parameters_file.csv", "/media/shantanu/Data/All Simulation Results/Meshless_Methods/CAD_mesh_files/hole_geometries/conc_circle_in_circle/annulus_opencasc_n_40.msh");
     int temporal_order = 1;
     parameters.Courant = parameters.Courant / ((double)temporal_order); //Adam-Bashforth has half stability than explicit Euler
+    double iterative_tolerance = 1E-4;
+    int precond_freq_it = 10000, n_outer_iter = 5;
 
     double Re = 100.0;
     parameters.rho = 1.0, parameters.mu = parameters.rho / Re;
@@ -44,24 +45,38 @@ int main(int argc, char *argv[])
             u_new[iv] = u_ana[iv], v_new[iv] = v_ana[iv]; //dirichlet BC
     }
     u_old = u_new, v_old = v_new;
-    FRACTIONAL_STEP_1 fractional_step_1(points, cloud, parameters, u_dirichlet_flag, v_dirichlet_flag, p_dirichlet_flag, temporal_order);
-    double total_steady_err;
+    // FRACTIONAL_STEP_1 fractional_step_1(points, cloud, parameters, u_dirichlet_flag, v_dirichlet_flag, p_dirichlet_flag, temporal_order);
+    SEMI_IMPLICIT_SPLIT_SOLVER semi_implicit_split_solver(points, cloud, parameters, u_dirichlet_flag, v_dirichlet_flag, p_dirichlet_flag, n_outer_iter, iterative_tolerance, precond_freq_it);
+    vector<int> n_outer_iter_log;
+    vector<double> iterative_l1_err_log, iterative_max_err_log;
+    double total_steady_l1_err = 1000.0;
+    vector<double> total_steady_l1_err_log;
     clock_t clock_t1 = clock(), clock_t2 = clock();
     cout << "\nTime marching started\n\n";
     for (int it = 0; it < parameters.nt; it++)
     {
-        total_steady_err = fractional_step_1.single_timestep_2d(points, cloud, parameters, u_new, v_new, p_new, u_old, v_old, p_old, it);
+        // fractional_step_1.single_timestep_2d(points, cloud, parameters, u_new, v_new, p_new, u_old, v_old, p_old, it);
+        semi_implicit_split_solver.iterative_tolerance = total_steady_l1_err * parameters.dt;
+        if (semi_implicit_split_solver.iterative_tolerance > iterative_tolerance)
+            semi_implicit_split_solver.iterative_tolerance = iterative_tolerance;
+        semi_implicit_split_solver.single_timestep_2d(points, cloud, parameters, u_new, v_new, p_new, u_old, v_old, p_old, it, n_outer_iter_log, iterative_l1_err_log, iterative_max_err_log);
+        total_steady_l1_err = (u_new - u_old).lpNorm<1>() / (u_new.lpNorm<Eigen::Infinity>());
+        total_steady_l1_err += ((v_new - v_old).lpNorm<1>() / (v_new.lpNorm<Eigen::Infinity>()));
+        total_steady_l1_err = total_steady_l1_err / (parameters.dimension * parameters.dt * u_new.size());
+        total_steady_l1_err_log.push_back(total_steady_l1_err);
         double runtime = ((double)(clock() - clock_t2)) / CLOCKS_PER_SEC;
-        if (runtime > 1.0 || it == 0 || it == 1 || it == parameters.nt - 1 || total_steady_err < parameters.steady_tolerance) //|| true
+        if (runtime > 1.0 || it == 0 || it == 1 || it == parameters.nt - 1 || total_steady_l1_err < parameters.steady_tolerance) //|| true
         {
             printf("    pressure regularization alpha: %g\n", p_new[points.nv]);
-            printf("    total steady state error: %g, steady_tolerance: %g\n", total_steady_err, parameters.steady_tolerance);
+            if (iterative_max_err_log.size() > 0)
+                printf("    Outer iterations: l1_error: %g, max_error: %g, iter_num: %i, tolerance: %g\n", iterative_l1_err_log[it], iterative_max_err_log[it], n_outer_iter_log[it], semi_implicit_split_solver.iterative_tolerance);
+            printf("    total steady state l1_error: %g, steady_tolerance: %g\n", total_steady_l1_err, parameters.steady_tolerance);
             printf("    Completed it: %i of nt: %i, dt: %g, in CPU time: %g seconds\n\n", it, parameters.nt, parameters.dt, ((double)(clock() - clock_t1)) / CLOCKS_PER_SEC);
             clock_t2 = clock();
         }
         parameters.nt_actual = it + 1;
         u_old = u_new, v_old = v_new, p_old = p_new;
-        if (total_steady_err < parameters.steady_tolerance && it > 1)
+        if (total_steady_l1_err < parameters.steady_tolerance && it > 1)
             break;
     }
     parameters.solve_timer = ((double)(clock() - clock_t1)) / CLOCKS_PER_SEC;
@@ -74,5 +89,18 @@ int main(int argc, char *argv[])
     write_navier_stokes_errors_2D(points, parameters, u_ana, v_ana, p_ana, u_new, v_new, p_new);
     write_navier_stokes_residuals_2D(points, parameters, u_ana, v_ana, p_ana, "_residuals_ana.csv");
     write_navier_stokes_residuals_2D(points, parameters, u_new, v_new, p_new, "_residuals_new.csv");
-    write_navier_stokes_tecplot_2D(points, parameters, u_ana, v_ana, p_ana, u_new, v_new, p_new);
+    Eigen::VectorXd u_error = (u_ana - u_new).cwiseAbs();
+    Eigen::VectorXd v_error = (v_ana - v_new).cwiseAbs();
+    Eigen::VectorXd p_error = (p_ana - p_new).cwiseAbs();
+    vector<string> variable_names{"u_new", "v_new", "p_new", "u_ana", "v_ana", "p_ana", "u_error", "v_error", "p_error"};
+    vector<Eigen::VectorXd *> variable_pointers{&u_new, &v_new, &p_new, &u_ana, &v_ana, &p_ana, &u_error, &v_error, &p_error};
+    write_tecplot_steady_variables(points, parameters, variable_names, variable_pointers);
+
+    FILE *file;
+    string output_file = parameters.output_file_prefix + "_steady_error.csv";
+    file = fopen(output_file.c_str(), "w");
+    fprintf(file, "time(s),l1_error\n");
+    for (int it = 0; it < total_steady_l1_err_log.size(); it++)
+        fprintf(file, "%.16g,%.16g\n", it * parameters.dt, total_steady_l1_err_log[it]);
+    fclose(file);
 }

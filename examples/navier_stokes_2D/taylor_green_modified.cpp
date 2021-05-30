@@ -2,7 +2,6 @@
 //compile: time make taylor_green_modified
 //execute: time ./out
 #include "../../header_files/class.hpp"
-#include "../../header_files/navier_stokes.hpp"
 #include "../../header_files/postprocessing_functions.hpp"
 #include "../../header_files/coefficient_computations.hpp"
 using namespace std;
@@ -21,11 +20,13 @@ int main(int argc, char *argv[])
 {
     MPI_Init(&argc, &argv);
     clock_t t0 = clock();
-    PARAMETERS parameters("parameters_file.csv", "/home/shantanu/Desktop/All Simulation Results/Meshless_Methods/CAD_mesh_files/Square/gmsh/Square_n_40_unstruc.msh");
+    PARAMETERS parameters("parameters_file.csv", "/media/shantanu/Data/All Simulation Results/Meshless_Methods/CAD_mesh_files/Square/gmsh/Square_n_40_unstruc.msh");
 
     int dim = parameters.dimension, temporal_order = 2;
-    parameters.Courant = parameters.Courant / ((double)temporal_order); //Adam-Bashforth has half stability than explicit Euler
-    double Re = 100.0, t_end = 1.0;
+    // parameters.Courant = parameters.Courant / ((double)temporal_order); //Adam-Bashforth has half stability than explicit Euler
+    double iterative_tolerance = 1E-5; //parameters.steady_tolerance;
+    int precond_freq_it = 10000, n_outer_iter = 5;
+    double Re = 100.0, t_end = 4.0;
     parameters.rho = 10.0, parameters.mu = parameters.rho / Re;
     POINTS points(parameters);
     CLOUD cloud(points, parameters);
@@ -46,7 +47,10 @@ int main(int argc, char *argv[])
     vector<double> v_max_err_internal, v_l1_err_internal, v_max_err_boundary, v_l1_err_boundary, v_max_err, v_l1_err;
     vector<double> p_max_err_internal, p_l1_err_internal, p_max_err_boundary, p_l1_err_boundary, p_max_err, p_l1_err;
 
-    FRACTIONAL_STEP_1 fractional_step_1(points, cloud, parameters, u_dirichlet_flag, v_dirichlet_flag, p_dirichlet_flag, temporal_order);
+    vector<int> n_outer_iter_log;
+    vector<double> iterative_l1_err_log, iterative_max_err_log, total_steady_err_log;
+    // FRACTIONAL_STEP_1 fractional_step_1(points, cloud, parameters, u_dirichlet_flag, v_dirichlet_flag, p_dirichlet_flag, temporal_order);
+    SEMI_IMPLICIT_SPLIT_SOLVER semi_implicit_split_solver(points, cloud, parameters, u_dirichlet_flag, v_dirichlet_flag, p_dirichlet_flag, n_outer_iter, iterative_tolerance, precond_freq_it);
     clock_t clock_t1 = clock(), clock_t2 = clock();
     cout << "\nTime marching started\n\n";
     parameters.nt = ceil(t_end / parameters.dt);
@@ -68,13 +72,14 @@ int main(int argc, char *argv[])
             u_ana[iv] = cos(x) * sin(y) * F_t;
             v_ana[iv] = -sin(x) * cos(y) * F_t;
             p_ana[iv] = -0.25 * parameters.rho * (cos(2 * x) + cos(2 * y)) * sin((it + 0.5) * parameters.dt * M_PI) * sin((it + 0.5) * parameters.dt * M_PI);
-            x_mom_source[iv] = parameters.rho * cos(x) * sin(y) * (M_PI * cos(it * parameters.dt * M_PI) + 2 * nu * sin(it * parameters.dt * M_PI));
-            y_mom_source[iv] = -parameters.rho * sin(x) * cos(y) * (M_PI * cos(it * parameters.dt * M_PI) + 2 * nu * sin(it * parameters.dt * M_PI));
+            x_mom_source[iv] = parameters.rho * cos(x) * sin(y) * (M_PI * cos((it + 1.0) * parameters.dt * M_PI) + 2 * nu * sin((it + 1.0) * parameters.dt * M_PI));
+            y_mom_source[iv] = -parameters.rho * sin(x) * cos(y) * (M_PI * cos((it + 1.0) * parameters.dt * M_PI) + 2 * nu * sin((it + 1.0) * parameters.dt * M_PI));
             if (points.boundary_flag[iv])
                 u_old[iv] = u_ana[iv], v_old[iv] = v_ana[iv]; //dirichlet BC
         }
 
-        fractional_step_1.single_timestep_2d(points, cloud, parameters, u_new, v_new, p_new, u_old, v_old, p_old, x_mom_source, y_mom_source, it);
+        // fractional_step_1.single_timestep_2d(points, cloud, parameters, u_new, v_new, p_new, u_old, v_old, p_old, x_mom_source, y_mom_source, it);
+        semi_implicit_split_solver.single_timestep_2d(points, cloud, parameters, u_new, v_new, p_new, u_old, v_old, p_old, x_mom_source, y_mom_source, it, n_outer_iter_log, iterative_l1_err_log, iterative_max_err_log);
         u_old = u_new, v_old = v_new, p_old = p_new;
 
         p_ana_head = p_ana.head(points.nv), p_new_head = p_new.head(points.nv);
@@ -91,6 +96,8 @@ int main(int argc, char *argv[])
             printf("    Pressure: internal: (%g, %g), boundary: (%g, %g), overall: (%g, %g)\n", p_max_err_internal[it], p_l1_err_internal[it], p_max_err_boundary[it], p_l1_err_boundary[it], p_max_err[it], p_l1_err[it]);
 
             printf("    pressure regularization alpha: %g\n", p_new[points.nv]);
+            if (iterative_max_err_log.size() > 0)
+                printf("    Outer iterations: l1_error: %g, max_error: %g, iter_num: %i\n", iterative_l1_err_log[it], iterative_max_err_log[it], n_outer_iter_log[it]);
             printf("    Completed it: %i of nt: %i (%.4g percent), dt: %g, in CPU time: %g seconds\n\n", it, parameters.nt, (100.0 * (it + 1)) / parameters.nt, parameters.dt, ((double)(clock() - clock_t1)) / CLOCKS_PER_SEC);
             clock_t2 = clock();
         }

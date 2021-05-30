@@ -2,7 +2,6 @@
 //compile: time make taylor_green_steady
 //execute: time ./out
 #include "../../header_files/class.hpp"
-#include "../../header_files/navier_stokes.hpp"
 #include "../../header_files/postprocessing_functions.hpp"
 #include "../../header_files/coefficient_computations.hpp"
 using namespace std;
@@ -11,9 +10,11 @@ int main(int argc, char *argv[])
 {
     MPI_Init(&argc, &argv);
     clock_t t0 = clock();
-    PARAMETERS parameters("parameters_file.csv", "/home/shantanu/Desktop/All Simulation Results/Meshless_Methods/CAD_mesh_files/Square/gmsh/Square_n_40_unstruc.msh");
+    PARAMETERS parameters("parameters_file.csv", "/media/shantanu/Data/All Simulation Results/Meshless_Methods/CAD_mesh_files/Square/gmsh/Square_n_40_unstruc.msh");
     int dim = parameters.dimension, temporal_order = 2;
-    parameters.Courant = parameters.Courant / ((double)temporal_order); //Adam-Bashforth has half stability than explicit Euler
+    // parameters.Courant = parameters.Courant / ((double)temporal_order); //Adam-Bashforth has half stability than explicit Euler
+    double iterative_tolerance = 1E-5; //parameters.steady_tolerance;
+    int precond_freq_it = 10000, n_outer_iter = 5;
 
     double Re = 100.0;
     parameters.rho = 10.0, parameters.mu = parameters.rho / Re;
@@ -44,16 +45,26 @@ int main(int argc, char *argv[])
     }
     parameters.calc_dt(points.grad_x_matrix_EIGEN, points.grad_y_matrix_EIGEN, points.grad_z_matrix_EIGEN, points.laplacian_matrix_EIGEN, max_abs(u_ana), max_abs(v_ana), 0.0, parameters.mu / parameters.rho);
     u_old = u_new, v_old = v_new;
-    FRACTIONAL_STEP_1 fractional_step_1(points, cloud, parameters, u_dirichlet_flag, v_dirichlet_flag, p_dirichlet_flag, temporal_order);
+    vector<int> n_outer_iter_log;
+    vector<double> iterative_l1_err_log, iterative_max_err_log, total_steady_err_log;
+    // FRACTIONAL_STEP_1 fractional_step_1(points, cloud, parameters, u_dirichlet_flag, v_dirichlet_flag, p_dirichlet_flag, temporal_order);
+    SEMI_IMPLICIT_SPLIT_SOLVER semi_implicit_split_solver(points, cloud, parameters, u_dirichlet_flag, v_dirichlet_flag, p_dirichlet_flag, n_outer_iter, iterative_tolerance, precond_freq_it);
     clock_t clock_t1 = clock(), clock_t2 = clock();
     cout << "\nTime marching started\n\n";
     for (int it = 0; it < parameters.nt; it++)
     {
-        total_steady_err = fractional_step_1.single_timestep_2d(points, cloud, parameters, u_new, v_new, p_new, u_old, v_old, p_old, x_mom_source, y_mom_source, it);
+        // fractional_step_1.single_timestep_2d(points, cloud, parameters, u_new, v_new, p_new, u_old, v_old, p_old, x_mom_source, y_mom_source, it);
+        semi_implicit_split_solver.single_timestep_2d(points, cloud, parameters, u_new, v_new, p_new, u_old, v_old, p_old, x_mom_source, y_mom_source, it, n_outer_iter_log, iterative_l1_err_log, iterative_max_err_log);
+        total_steady_err = (u_new - u_old).lpNorm<1>() / (u_new.lpNorm<Eigen::Infinity>());
+        total_steady_err += (v_new - v_old).lpNorm<1>() / (v_new.lpNorm<Eigen::Infinity>());
+        total_steady_err = total_steady_err / (parameters.dimension * parameters.dt * u_new.size());
+        total_steady_err_log.push_back(total_steady_err);
         double runtime = ((double)(clock() - clock_t2)) / CLOCKS_PER_SEC;
         if (runtime > 1.0 || it == 0 || it == 1 || it == parameters.nt - 1 || total_steady_err < parameters.steady_tolerance) //|| true
         {
             printf("    pressure regularization alpha: %g\n", p_new[points.nv]);
+            if (iterative_max_err_log.size() > 0)
+                printf("    Outer iterations: l1_error: %g, max_error: %g, iter_num: %i\n", iterative_l1_err_log[it], iterative_max_err_log[it], n_outer_iter_log[it]);
             printf("    total steady state error: %g, steady_tolerance: %g\n", total_steady_err, parameters.steady_tolerance);
             printf("    Completed it: %i of nt: %i, dt: %g, in CPU time: %g seconds\n\n", it, parameters.nt, parameters.dt, ((double)(clock() - clock_t1)) / CLOCKS_PER_SEC);
             clock_t2 = clock();
@@ -71,4 +82,12 @@ int main(int argc, char *argv[])
     parameters.total_timer = ((double)(clock() - t0)) / CLOCKS_PER_SEC;
     write_simulation_details(points, cloud, parameters), write_iteration_details(parameters);
     write_navier_stokes_errors_2D(points, parameters, u_ana, v_ana, p_ana, u_new, v_new, p_new);
+
+    FILE *file;
+    string output_file = parameters.output_file_prefix + "_steady_error.csv";
+    file = fopen(output_file.c_str(), "w");
+    fprintf(file, "time(s),l1_error\n");
+    for (int it = 0; it < total_steady_err_log.size(); it++)
+        fprintf(file, "%.16g,%.16g\n", it * parameters.dt, total_steady_err_log[it]);
+    fclose(file);
 }

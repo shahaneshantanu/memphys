@@ -1,5 +1,5 @@
 //Author: Dr. Shantanu Shahane
-//compile: time make heat_conduction_numerical
+//compile: time make heat_conduction_periodic
 //execute: time ./out
 #include "../../header_files/class.hpp"
 #include "../../header_files/postprocessing_functions.hpp"
@@ -10,30 +10,30 @@ int main(int argc, char *argv[])
     MPI_Init(&argc, &argv);
     clock_t t0 = clock();
 
-    string meshfile = "/media/shantanu/Data/All Simulation Results/Meshless_Methods/CAD_mesh_files/hole_geometries/circle_in_rectangle/circle_in_rectangle_n_10.msh"; //2D example
-    // string meshfile = "/media/shantanu/Datall Simulation Results/Meshless_Methods/CAD_mesh_files/cuboid/Cuboid_n_10_unstruc.msh"; //3D example
+    string meshfile = "/media/shantanu/Data/All Simulation Results/Meshless_Methods/CAD_mesh_files/Square/gmsh/Square_n_50_unstruc.msh"; //2D example
+    // string meshfile = "/media/shantanu/Data/All Simulation Results/Meshless_Methods/CAD_mesh_files/cuboid/Cuboid_n_20_unstruc.msh"; //3D example
 
     PARAMETERS parameters("parameters_file.csv", meshfile);
     POINTS points(parameters);
+    vector<string> periodic_axis{"y"};
+    points.set_periodic_bc(parameters, periodic_axis);
     CLOUD cloud(points, parameters);
     Eigen::VectorXd T_num_new = Eigen::VectorXd::Zero(points.nv);
     Eigen::VectorXd T_num_old = T_num_new, source = T_num_new;
     vector<bool> dirichlet_flag;
-    double x, y, r, radius = 1.0;
+
+    double x, y, bc_mu = 0.5, bc_sig = 0.1;
+    int dim = parameters.dimension;
     for (int iv = 0; iv < points.nv; iv++)
     {
         dirichlet_flag.push_back(true); //default is dirichlet
-        x = points.xyz[parameters.dimension * iv], y = points.xyz[parameters.dimension * iv + 1], r = sqrt(x * x + y * y);
+        x = points.xyz[dim * iv], y = points.xyz[dim * iv + 1];
         if (points.boundary_flag[iv])
-        { //mixed BC: dirichlet and neumann
-            if (fabs(r - radius) < 1E-5)
-                T_num_old[iv] = 1.0; //dirichlet BC
-            if (fabs(x + 10.0) < 1E-5)
-                dirichlet_flag[iv] = false; //neumann BC
-        }
+            if (fabs(x - 1.0) < 1E-4)
+                T_num_old[iv] = exp(-(y - bc_mu) * (y - bc_mu) / (2 * bc_sig * bc_sig)) / (bc_sig * sqrt(2 * M_PI));
     }
-    double max_err, l1_err, grad_x, grad_y, grad_z = 0.0;
-    int dim = parameters.dimension;
+
+    double max_err, l1_err;
     parameters.calc_dt(points.grad_x_matrix_EIGEN, points.grad_y_matrix_EIGEN, points.grad_z_matrix_EIGEN, points.laplacian_matrix_EIGEN, 0.0, 0.0, 0.0, 1.0);
     clock_t t1 = clock();
     double unsteady_term_coeff = 1.0 / parameters.dt, conv_term_coeff = 0.0, diff_term_coeff = -1.0;

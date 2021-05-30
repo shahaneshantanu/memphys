@@ -68,6 +68,7 @@ public:
     string meshfile;                           //meshfile name
     string output_file_prefix;                 //used to write all output files
     double max_dx, min_dx, avg_dx;             //characteristic length scales of mesh
+    vector<int> periodic_bc_index;             //periodic BC wrt 0:'x', 1:'y', 2:'z'; : size [no. of periodic axes]; ex. ['z','x']:[2,0]; ['y']:[1]
     double dt;
     double rho = -10.0, mu = rho; //should be set in the main file
     double steady_tolerance, solver_tolerance, Courant, precond_droptol;
@@ -97,6 +98,7 @@ public:
     vector<bool> corner_edge_vertices;                                   //true at corner (for 2D, 3D problems) and edge (for 3D problems only): size [nv]
     int nv;                                                              //Number of vertices in original msh file
     int nv_original;                                                     //Number of vertices
+    vector<double> xyz_min, xyz_max, xyz_length;                         //each of size:[dim]
     vector<double> xyz;                                                  //vertex co-ordinates: size [nv X dim]
     vector<double> xyz_original;                                         //all vertex co-ordinates in original msh file: size [nv_original X dim]; nv_original can be greater than nv
     int nelem_original;                                                  //no. of elements in the original file
@@ -107,6 +109,8 @@ public:
     vector<int> iv_original_nearest_vert;                                //nearest vertex no for vertices in xyz_original: size [nv_original]; nv_original can be greater than nv
     vector<double> normal;                                               //vertex co-ordinates (relavant only for boundary vertices): size [nv X dim]
     vector<bool> boundary_flag;                                          //boundary_flag=1 if it is on boundary; else boundary_flag=0: size [nv]
+    vector<vector<bool>> periodic_bc_flag;                               //periodic_bc_flag=1 if it is on periodic boundary; else periodic_bc_flag=0: size [nv][no. of periodic axes]
+    vector<vector<int>> periodic_bc_section;                             //takes values [-1,0,1] for [near_min,middle,near_max] sections respectively: size [nv][no. of periodic axes]
     vector<int> bc_tag;                                                  //bc_tag associated with each vertex (helps to identify various boundary areas and internal region): size [nv]
     Eigen::SparseMatrix<double, Eigen::RowMajor> grad_x_matrix_EIGEN;    //used for convection source term size [points.nv X points.nv]
     Eigen::SparseMatrix<double, Eigen::RowMajor> grad_y_matrix_EIGEN;    //used for convection source term size [points.nv X points.nv]
@@ -130,6 +134,8 @@ public:
     void calc_elem_normal_2D(vector<double> &elem_normal, vector<vector<int>> &vert_nb_cv, vector<vector<int>> &elem_vert, vector<bool> &elem_boundary_flag);
     void calc_elem_normal_3D(vector<double> &elem_normal, vector<vector<int>> &vert_nb_cv, vector<vector<int>> &elem_vert, vector<bool> &elem_boundary_flag);
     void delete_corner_edge_vertices(PARAMETERS &parameters);
+    void delete_periodic_bc_vertices(PARAMETERS &parameters);
+    void set_periodic_bc(PARAMETERS &parameters, vector<string> periodic_axis);
 };
 
 class CLOUD
@@ -150,6 +156,8 @@ public:
     CLOUD(POINTS &points, PARAMETERS &parameters);
     void calc_cloud_points_slow(POINTS &points, PARAMETERS &parameters);
     void calc_cloud_points_fast(POINTS &points, PARAMETERS &parameters);
+    void calc_cloud_points_fast_periodic_bc(POINTS &points, PARAMETERS &parameters);
+    void calc_cloud_points_fast_periodic_bc_shifted(POINTS &points, PARAMETERS &parameters, vector<double> &xyz_shifted, vector<int> &periodic_bc_section_value);
     void re_order_points_reverse_cuthill_mckee(POINTS &points, PARAMETERS &parameters);
     void re_order_points(POINTS &points, PARAMETERS &parameters);
     void calc_iv_original_nearest_vert(POINTS &points, PARAMETERS &parameters);
@@ -210,13 +218,13 @@ public:
     // Functions
     FRACTIONAL_STEP_1(POINTS &points, CLOUD &cloud, PARAMETERS &parameters, vector<bool> &u_dirichlet_flag1, vector<bool> &v_dirichlet_flag1, vector<bool> &p_dirichlet_flag1, int temporal_order1);
     void check_bc(POINTS &points, PARAMETERS &parameters);
-    double single_timestep_2d(POINTS &points, CLOUD &cloud, PARAMETERS &parameters, Eigen::VectorXd &u_new, Eigen::VectorXd &v_new, Eigen::VectorXd &p_new, Eigen::VectorXd &u_old, Eigen::VectorXd &v_old, Eigen::VectorXd &p_old, int it1);
-    double single_timestep_2d(POINTS &points, CLOUD &cloud, PARAMETERS &parameters, Eigen::VectorXd &u_new, Eigen::VectorXd &v_new, Eigen::VectorXd &p_new, Eigen::VectorXd &u_old, Eigen::VectorXd &v_old, Eigen::VectorXd &p_old, Eigen::VectorXd &body_force_x, Eigen::VectorXd &body_force_y, int it1);
+    void single_timestep_2d(POINTS &points, CLOUD &cloud, PARAMETERS &parameters, Eigen::VectorXd &u_new, Eigen::VectorXd &v_new, Eigen::VectorXd &p_new, Eigen::VectorXd &u_old, Eigen::VectorXd &v_old, Eigen::VectorXd &p_old, int it1);
+    void single_timestep_2d(POINTS &points, CLOUD &cloud, PARAMETERS &parameters, Eigen::VectorXd &u_new, Eigen::VectorXd &v_new, Eigen::VectorXd &p_new, Eigen::VectorXd &u_old, Eigen::VectorXd &v_old, Eigen::VectorXd &p_old, Eigen::VectorXd &body_force_x, Eigen::VectorXd &body_force_y, int it1);
     void calc_vel_hat(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &u_old, Eigen::VectorXd &v_old, Eigen::VectorXd &p_old);
     void calc_vel_hat(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &u_old, Eigen::VectorXd &v_old, Eigen::VectorXd &p_old, Eigen::VectorXd &body_force_x, Eigen::VectorXd &body_force_y);
     void calc_pressure(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &u_new, Eigen::VectorXd &v_new, Eigen::VectorXd &p_new, Eigen::VectorXd &u_old, Eigen::VectorXd &v_old, Eigen::VectorXd &p_old);
     void calc_vel_corr(POINTS &points, CLOUD &cloud, PARAMETERS &parameters, Eigen::VectorXd &u_new, Eigen::VectorXd &v_new, Eigen::VectorXd &p_new, Eigen::VectorXd &u_old, Eigen::VectorXd &v_old);
-    double extras(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &u_new, Eigen::VectorXd &v_new, Eigen::VectorXd &p_new, Eigen::VectorXd &u_old, Eigen::VectorXd &v_old, Eigen::VectorXd &p_old);
+    void extras(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &u_new, Eigen::VectorXd &v_new, Eigen::VectorXd &p_new, Eigen::VectorXd &u_old, Eigen::VectorXd &v_old, Eigen::VectorXd &p_old);
 
     // Variables
     SOLVER solver_p;
@@ -230,14 +238,66 @@ public:
     int temporal_order = -1, it;
 };
 
+class IMPLICIT_SCALAR_TRANSPORT_SOLVER
+{ //scalar transport with spatially varying velocity field: BDF2
+public:
+    // Functions
+    IMPLICIT_SCALAR_TRANSPORT_SOLVER(POINTS &points, CLOUD &cloud, PARAMETERS &parameters, vector<bool> &dirichlet_flag1, int precond_freq_it1, double unsteady_coeff1, double conv_coeff1, double diff_coeff1, bool solver_log_flag1);
+    void single_timestep_2d(POINTS &points, CLOUD &cloud, PARAMETERS &parameters, Eigen::VectorXd &phi_new, Eigen::VectorXd &phi_old, Eigen::VectorXd &u_new, Eigen::VectorXd &v_new, int it1);
+    void set_matrix(POINTS &points, CLOUD &cloud, PARAMETERS &parameters, Eigen::VectorXd &u_new, Eigen::VectorXd &v_new);
+    void modify_matrix(POINTS &points, CLOUD &cloud, PARAMETERS &parameters, Eigen::VectorXd &u_new, Eigen::VectorXd &v_new);
+    void calc_nb_points_col_matrix(POINTS &points, CLOUD &cloud, PARAMETERS &parameters);
+
+    // Variables
+    Eigen::SparseMatrix<double, Eigen::RowMajor> matrix;
+    Eigen::BiCGSTAB<Eigen::SparseMatrix<double, Eigen::RowMajor>, Eigen::IncompleteLUT<double>> solver_eigen;
+    Eigen::VectorXd zero_vector, source, phi_old_old;
+    vector<bool> dirichlet_flag;
+    vector<int> nb_points_col_matrix;
+    bool bc_full_neumann, solver_log_flag;
+    int it, precond_freq_it;
+    double unsteady_coeff, conv_coeff, diff_coeff;
+    double bdf2_alpha_1 = 1.5, bdf2_alpha_2 = -2.0, bdf2_alpha_3 = 0.5; //https://en.wikipedia.org/wiki/Backward_differentiation_formula
+};
+
+class SEMI_IMPLICIT_SPLIT_SOLVER
+{ //iterative split solver for Navier-Stokes equations
+public:
+    // Functions
+    SEMI_IMPLICIT_SPLIT_SOLVER(POINTS &points, CLOUD &cloud, PARAMETERS &parameters, vector<bool> &u_dirichlet_flag1, vector<bool> &v_dirichlet_flag1, vector<bool> &p_dirichlet_flag1, int n_outer_iter1, double iterative_tolerance1, int precond_freq_it1);
+    void check_bc(POINTS &points, PARAMETERS &parameters);
+    void single_timestep_2d(POINTS &points, CLOUD &cloud, PARAMETERS &parameters, Eigen::VectorXd &u_new, Eigen::VectorXd &v_new, Eigen::VectorXd &p_new, Eigen::VectorXd &u_old, Eigen::VectorXd &v_old, Eigen::VectorXd &p_old, int it1, vector<int> &n_outer_iter_log, vector<double> &iterative_l1_err_log, vector<double> &iterative_max_err_log);
+    void single_timestep_2d(POINTS &points, CLOUD &cloud, PARAMETERS &parameters, Eigen::VectorXd &u_new, Eigen::VectorXd &v_new, Eigen::VectorXd &p_new, Eigen::VectorXd &u_old, Eigen::VectorXd &v_old, Eigen::VectorXd &p_old, Eigen::VectorXd &body_force_x, Eigen::VectorXd &body_force_y, int it1, vector<int> &n_outer_iter_log, vector<double> &iterative_l1_err_log, vector<double> &iterative_max_err_log);
+    void set_vel_matrix(POINTS &points, CLOUD &cloud, PARAMETERS &parameters, Eigen::VectorXd &u_new, Eigen::VectorXd &v_new);
+    void calc_nb_points_col_matrix(POINTS &points, CLOUD &cloud, PARAMETERS &parameters);
+    void modify_vel_matrix(POINTS &points, CLOUD &cloud, PARAMETERS &parameters, Eigen::VectorXd &u_new, Eigen::VectorXd &v_new);
+    void calc_vel(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &u_new, Eigen::VectorXd &v_new, Eigen::VectorXd &p_new, Eigen::VectorXd &u_old, Eigen::VectorXd &v_old, Eigen::VectorXd &p_old);
+    void calc_vel(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &u_new, Eigen::VectorXd &v_new, Eigen::VectorXd &p_new, Eigen::VectorXd &u_old, Eigen::VectorXd &v_old, Eigen::VectorXd &p_old, Eigen::VectorXd &body_force_x, Eigen::VectorXd &body_force_y);
+    void calc_pressure(POINTS &points, CLOUD &cloud, PARAMETERS &parameters, Eigen::VectorXd &u_new, Eigen::VectorXd &v_new, Eigen::VectorXd &p_new, Eigen::VectorXd &u_old, Eigen::VectorXd &v_old, Eigen::VectorXd &p_old);
+    void calc_vel_corr(POINTS &points, CLOUD &cloud, PARAMETERS &parameters, Eigen::VectorXd &u_new, Eigen::VectorXd &v_new);
+    void extras(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &u_new, Eigen::VectorXd &v_new, Eigen::VectorXd &p_new, Eigen::VectorXd &u_old, Eigen::VectorXd &v_old, Eigen::VectorXd &p_old);
+
+    // Variables
+    SOLVER solver_p;
+    Eigen::SparseMatrix<double, Eigen::RowMajor> matrix_u, matrix_v;
+    Eigen::BiCGSTAB<Eigen::SparseMatrix<double, Eigen::RowMajor>, Eigen::IncompleteLUT<double>> solver_eigen_u, solver_eigen_v;
+    Eigen::VectorXd zero_vector, zero_vector_1;
+    Eigen::VectorXd normal_mom_x, normal_mom_y;
+    Eigen::VectorXd p_prime, p_source, u_source, v_source, u_prime, v_prime, u_iter_old, v_iter_old, u_old_old, v_old_old;
+    vector<bool> u_dirichlet_flag, v_dirichlet_flag, p_dirichlet_flag;
+    vector<int> nb_points_col_matrix_u, nb_points_col_matrix_v;
+    bool p_bc_full_neumann;
+    double iterative_tolerance, iterative_l1_err, iterative_max_err;
+    int it, n_outer_iter, outer_iter, precond_freq_it;
+    double bdf2_alpha_1 = 1.5, bdf2_alpha_2 = -2.0, bdf2_alpha_3 = 0.5; //https://en.wikipedia.org/wiki/Backward_differentiation_formula
+};
+
 class SOLIDIFICATION
 {
 public:
     // Functions
     SOLIDIFICATION(POINTS &points, CLOUD &cloud, PARAMETERS &parameters, int temporal_order1);
     void single_timestep_2d(POINTS &points, CLOUD &cloud, PARAMETERS &parameters, Eigen::VectorXd &T_new, Eigen::VectorXd &T_old, Eigen::VectorXd &fs_new, Eigen::VectorXd &fs_old, int it);
-    void write_tecplot_temporal_header(POINTS &points, PARAMETERS &parameters);
-    void write_tecplot_temporal_fields(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &T_new, Eigen::VectorXd &fs_new, int it);
 
     // Variables
     Eigen::VectorXd dfs_dT, T_source;

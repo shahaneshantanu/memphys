@@ -11,8 +11,8 @@ int main(int argc, char *argv[])
     clock_t t0 = clock();
     double wv = 1.0; //wavenumber
 
-    string meshfile = "/home/shantanu/Desktop/All Simulation Results/Meshless_Methods/CAD_mesh_files/Square/gmsh/Square_n_10_unstruc.msh"; //2D example
-    // string meshfile = "/home/shantanu/Desktop/All Simulation Results/Meshless_Methods/CAD_mesh_files/cuboid/Cuboid_n_10_unstruc.msh"; //3D example
+    string meshfile = "/media/shantanu/Data/All Simulation Results/Meshless_Methods/CAD_mesh_files/Square/gmsh/Square_n_10_unstruc.msh"; //2D example
+    // string meshfile = "/media/shantanu/Data/All Simulation Results/Meshless_Methods/CAD_mesh_files/cuboid/Cuboid_n_10_unstruc.msh"; //3D example
 
     PARAMETERS parameters("parameters_file.csv", meshfile);
     POINTS points(parameters);
@@ -76,8 +76,8 @@ int main(int argc, char *argv[])
     printf("\nmain Dirichlet BC dimension: %i, relative errors in T: max: %g, avg: %g\n\n\n", dim, max_err, l1_err);
     parameters.total_timer = ((double)(clock() - t0)) / CLOCKS_PER_SEC;
     write_simulation_details(points, cloud, parameters), write_iteration_details(parameters);
-    if (parameters.dimension == 2)
-        write_temperature_tecplot_2D(points, parameters, T_ana, T_num_new);
-    else
-        write_temperature_tecplot_3D(points, parameters, T_ana, T_num_new);
+    Eigen::VectorXd T_error = (T_ana - T_num_new).cwiseAbs();
+    vector<string> variable_names{"T_new", "T_ana", "T_error"};
+    vector<Eigen::VectorXd *> variable_pointers{&T_num_new, &T_ana, &T_error};
+    write_tecplot_steady_variables(points, parameters, variable_names, variable_pointers);
 }

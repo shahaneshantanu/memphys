@@ -43,6 +43,151 @@ POINTS::POINTS(PARAMETERS &parameters)
     parameters.points_timer = ((double)(clock() - clock_t1)) / CLOCKS_PER_SEC;
 }
 
+void POINTS::set_periodic_bc(PARAMETERS &parameters, vector<string> periodic_axis)
+{
+    int dim = parameters.dimension;
+    if (periodic_axis.size() > dim)
+    {
+        cout << "\n\nPOINTS::set_periodic_bc number of periodic axes: " << periodic_axis.size() << " should not be greater than problem dimension: " << dim << "\n\n";
+        throw bad_exception();
+    }
+
+    for (int ip = 0; ip < periodic_axis.size(); ip++)
+        if (periodic_axis[ip] == "x" || periodic_axis[ip] == "X")
+            parameters.periodic_bc_index.push_back(0);
+        else if (periodic_axis[ip] == "y" || periodic_axis[ip] == "Y")
+            parameters.periodic_bc_index.push_back(1);
+        else if ((periodic_axis[ip] == "z" || periodic_axis[ip] == "Z") && dim == 3)
+            parameters.periodic_bc_index.push_back(2);
+        else
+        {
+            cout << "\n\nPOINTS::set_periodic_bc undefined periodic_axis: " << periodic_axis[ip] << "\n\n";
+            throw bad_exception();
+        }
+    cout << "POINTS::set_periodic_bc periodic axes:";
+    for (int ip = 0; ip < periodic_axis.size(); ip++)
+        cout << " " << periodic_axis[ip];
+    cout << "\n\n";
+    vector<int> ind_p = parameters.periodic_bc_index;
+    double x_min = xyz[0], x_max = xyz[0], y_min = xyz[1], y_max = xyz[1], z_min = xyz[2], z_max = xyz[2];
+    for (int iv = 0; iv < nv; iv++)
+    {
+        if (x_min > xyz[dim * iv])
+            x_min = xyz[dim * iv];
+        if (x_max < xyz[dim * iv])
+            x_max = xyz[dim * iv];
+        if (y_min > xyz[dim * iv + 1])
+            y_min = xyz[dim * iv + 1];
+        if (y_max < xyz[dim * iv + 1])
+            y_max = xyz[dim * iv + 1];
+        if (dim == 3)
+        {
+            if (z_min > xyz[dim * iv + 2])
+                z_min = xyz[dim * iv + 2];
+            if (z_max < xyz[dim * iv + 2])
+                z_max = xyz[dim * iv + 2];
+        }
+    }
+    xyz_min.push_back(x_min), xyz_min.push_back(y_min);
+    xyz_max.push_back(x_max), xyz_max.push_back(y_max);
+    if (dim == 3)
+        xyz_min.push_back(z_min), xyz_max.push_back(z_max);
+    for (int i1 = 0; i1 < xyz_min.size(); i1++)
+        xyz_length.push_back(xyz_max[i1] - xyz_min[i1]);
+
+    delete_periodic_bc_vertices(parameters);
+
+    vector<bool> empty_bool;
+    for (int iv = 0; iv < nv; iv++)
+    {
+        periodic_bc_flag.push_back(empty_bool);
+        for (int ip = 0; ip < ind_p.size(); ip++)
+            periodic_bc_flag[iv].push_back(false);
+    }
+    for (int iv = 0; iv < nv; iv++)
+        if (boundary_flag[iv])
+            for (int ip = 0; ip < ind_p.size(); ip++)
+                if ((fabs(xyz[dim * iv + ind_p[ip]] - xyz_min[ind_p[ip]]) < 1E-5) || (fabs(xyz[dim * iv + ind_p[ip]] - xyz_max[ind_p[ip]]) < 1E-5)) //periodic point is not a real boundary
+                    boundary_flag[iv] = false, periodic_bc_flag[iv][ip] = true;
+
+    vector<int> empty_int;
+    for (int iv = 0; iv < nv; iv++)
+    {
+        periodic_bc_section.push_back(empty_int);
+        for (int ip = 0; ip < ind_p.size(); ip++)
+            periodic_bc_section[iv].push_back(100);
+    }
+    double xyz_1, xyz_2;
+    for (int iv = 0; iv < nv; iv++) //takes values [-1,0,1] for [near_min,middle,near_max] sections respectively
+        for (int ip = 0; ip < ind_p.size(); ip++)
+        {
+            xyz_1 = xyz_min[ind_p[ip]] + (xyz_length[ind_p[ip]] / 3.0);
+            xyz_2 = xyz_min[ind_p[ip]] + (2.0 * xyz_length[ind_p[ip]] / 3.0);
+            if (xyz[dim * iv + ind_p[ip]] < xyz_1)
+                periodic_bc_section[iv][ip] = -1; //section in range [min, xyz_1)
+            else if ((xyz_1 <= xyz[dim * iv + ind_p[ip]]) && (xyz[dim * iv + ind_p[ip]] <= xyz_2))
+                periodic_bc_section[iv][ip] = 0; //section in range [xyz_1 -> xyz_2]
+            else
+                periodic_bc_section[iv][ip] = 1; //section in range (xyz_2, max]}
+        }
+}
+
+void POINTS::delete_periodic_bc_vertices(PARAMETERS &parameters)
+{ //delete corner vertices for 2D problems and both corner and edge vertices for 3D problems
+    int iv_offset = 0, iv1, dim = parameters.dimension, nv1 = boundary_flag.size();
+    vector<int> ind_p = parameters.periodic_bc_index;
+    vector<bool> delete_vertices_temp;
+    for (int iv0 = 0; iv0 < nv_original; iv0++)
+    {
+        if (corner_edge_vertices[iv0]) //already deleted vertex
+            iv_offset++;
+        else
+        {
+            iv1 = iv0 - iv_offset;
+            delete_vertices_temp.push_back(false);
+            if (boundary_flag[iv1])
+                for (int ip = 0; ip < ind_p.size(); ip++)
+                    if (fabs(xyz[dim * iv1 + ind_p[ip]] - xyz_max[ind_p[ip]]) < 1E-5)
+                    { //delete higher end of periodic bc
+                        delete_vertices_temp[iv1] = true;
+                        corner_edge_vertices[iv0] = true; //this vertex is deleted (used in CLOUD::calc_iv_original_nearest_vert)
+                    }
+        }
+    }
+
+    vector<double> xyz_temp, normal_temp;
+    vector<bool> b_temp;
+    vector<int> bc_tag_temp;
+    for (iv1 = 0; iv1 < nv1; iv1++)
+    {
+        if (delete_vertices_temp[iv1] == false)
+        { //iv is a required vertex: thus copy in temporary vectors
+            b_temp.push_back(boundary_flag[iv1]);
+            bc_tag_temp.push_back(bc_tag[iv1]);
+            for (int i = 0; i < dim; i++)
+            {
+                xyz_temp.push_back(xyz[dim * iv1 + i]);
+                normal_temp.push_back(normal[dim * iv1 + i]);
+            }
+        }
+    }
+    bc_tag.clear();
+    boundary_flag.clear();
+    xyz.clear();
+    normal.clear();
+    boundary_flag.insert(boundary_flag.end(), b_temp.begin(), b_temp.end());
+    bc_tag.insert(bc_tag.end(), bc_tag_temp.begin(), bc_tag_temp.end());
+    xyz.insert(xyz.end(), xyz_temp.begin(), xyz_temp.end());
+    normal.insert(normal.end(), normal_temp.begin(), normal_temp.end());
+    b_temp.clear();
+    xyz_temp.clear();
+    normal_temp.clear();
+    delete_vertices_temp.clear();
+    bc_tag_temp.clear();
+    nv = boundary_flag.size();
+    cout << "POINTS::delete_periodic_bc_vertices after deleting periodic_bc vertices nv: " << nv << endl;
+}
+
 void POINTS::calc_elem_bc_tag(PARAMETERS &parameters)
 {
     int iv_orig, iv_new, dim = parameters.dimension;

@@ -207,6 +207,23 @@ void print_to_terminal(Eigen::MatrixXd &A, const char *text)
     cout << "\nEigen::Matrix double of shape " << nr << " X " << nc << ", print_to_terminal called from " << text << "\nEnd printing.\n\n ";
 }
 
+void print_to_terminal(Eigen::MatrixXcd &A, const char *text)
+{
+    int nr = A.rows(), nc = A.cols();
+    cout << "\nEigen::Matrix double of shape " << nr << " X " << nc << ", print_to_terminal called from " << text << "\nStart printing :\n\n";
+    for (int ir = 0; ir < nr; ir++)
+    {
+        cout << "row " << ir << ": ";
+        for (int ic = 0; ic < nc; ic++)
+        {
+            // cout << A(ir, ic) << " ";
+            printf("%g + %gi,", A(ir, ic).real(), A(ir, ic).imag());
+        }
+        cout << "\n";
+    }
+    cout << "\nEigen::Matrix double of shape " << nr << " X " << nc << ", print_to_terminal called from " << text << "\nEnd printing.\n\n ";
+}
+
 void print_to_terminal(Eigen::MatrixXi &A, const char *text)
 {
     int nr = A.rows(), nc = A.cols();
@@ -255,7 +272,24 @@ void write_csv(Eigen::MatrixXd &A, const char *file_name)
         fprintf(file, "%i,", ir);
         for (int ic = 0; ic < nc; ic++)
         {
-            fprintf(file, "%g,", A(ir, ic));
+            fprintf(file, "%.16g,", A(ir, ic));
+        }
+        fprintf(file, "\n");
+    }
+    fclose(file);
+}
+
+void write_csv(Eigen::MatrixXcd &A, const char *file_name)
+{
+    FILE *file;
+    file = fopen(file_name, "w");
+    int nr = A.rows(), nc = A.cols();
+    for (int ir = 0; ir < nr; ir++)
+    {
+        fprintf(file, "%i,", ir);
+        for (int ic = 0; ic < nc; ic++)
+        {
+            fprintf(file, "%.16g + %.16gi,", A(ir, ic).real(), A(ir, ic).imag());
         }
         fprintf(file, "\n");
     }
@@ -273,7 +307,7 @@ void write_csv(Eigen::SparseMatrix<double, Eigen::RowMajor> &A, const char *file
     {
         for (Eigen::SparseMatrix<double, Eigen::RowMajor>::InnerIterator it(A, k); it; ++it)
         {
-            fprintf(file, "%ld,%ld,%g\n", it.row(), it.col(), it.value());
+            fprintf(file, "%ld,%ld,%.16g\n", it.row(), it.col(), it.value());
         }
     }
     fclose(file);
@@ -303,7 +337,45 @@ void write_csv(Eigen::VectorXd &A, const char *file_name)
     int nr = A.size();
     for (int ir = 0; ir < nr; ir++)
     {
-        fprintf(file, "%i,%g\n", ir, A(ir));
+        fprintf(file, "%i,%.16g\n", ir, A(ir));
+    }
+    fclose(file);
+}
+
+void write_csv_benchmark(vector<double> &xyz_interp, Eigen::VectorXd &simulation, const char *file_name, int dim)
+{
+    FILE *file;
+    file = fopen(file_name, "w");
+    if (dim == 2)
+    {
+        fprintf(file, "x,y,simulation\n");
+        for (int ir = 0; ir < simulation.size(); ir++)
+            fprintf(file, "%.16g,%.16g,%.16g\n", xyz_interp[dim * ir], xyz_interp[dim * ir + 1], simulation(ir));
+    }
+    else
+    {
+        fprintf(file, "x,y,z,simulation,abs_diff\n");
+        for (int ir = 0; ir < simulation.size(); ir++)
+            fprintf(file, "%.16g,%.16g,%.16g,%.16g\n", xyz_interp[dim * ir], xyz_interp[dim * ir + 1], xyz_interp[dim * ir + 2], simulation(ir));
+    }
+    fclose(file);
+}
+
+void write_csv_benchmark(vector<double> &xyz_interp, Eigen::VectorXd &reference, Eigen::VectorXd &simulation, const char *file_name, int dim)
+{
+    FILE *file;
+    file = fopen(file_name, "w");
+    if (dim == 2)
+    {
+        fprintf(file, "x,y,reference,simulation,abs_diff\n");
+        for (int ir = 0; ir < reference.size(); ir++)
+            fprintf(file, "%.16g,%.16g,%.16g,%.16g,%.16g\n", xyz_interp[dim * ir], xyz_interp[dim * ir + 1], reference(ir), simulation(ir), fabs(reference(ir) - simulation(ir)));
+    }
+    else
+    {
+        fprintf(file, "x,y,z,reference,simulation,abs_diff\n");
+        for (int ir = 0; ir < reference.size(); ir++)
+            fprintf(file, "%.16g,%.16g,%.16g,%.16g,%.16g,%.16g\n", xyz_interp[dim * ir], xyz_interp[dim * ir + 1], xyz_interp[dim * ir + 2], reference(ir), simulation(ir), fabs(reference(ir) - simulation(ir)));
     }
     fclose(file);
 }
@@ -324,9 +396,66 @@ void write_csv(vector<double> &xyz, vector<bool> &boundary_flag, Eigen::VectorXd
         if (divide < 1E-10)
             divide = 0.5 * fabs(A_ana[iv] + A_num[iv]);
         if (dim == 2)
-            fprintf(file, "%i,%g,%g,%i,%g,%g,%g,%g\n", iv, xyz[dim * iv], xyz[dim * iv + 1], (int)(boundary_flag[iv]), A_ana[iv], A_num[iv], fabs(A_ana[iv] - A_num[iv]), fabs(A_ana[iv] - A_num[iv]) / divide);
+            fprintf(file, "%i,%.16g,%.16g,%i,%.16g,%.16g,%.16g,%.16g\n", iv, xyz[dim * iv], xyz[dim * iv + 1], (int)(boundary_flag[iv]), A_ana[iv], A_num[iv], fabs(A_ana[iv] - A_num[iv]), fabs(A_ana[iv] - A_num[iv]) / divide);
         else
-            fprintf(file, "%i,%g,%g,%g,%i,%g,%g,%g,%g\n", iv, xyz[dim * iv], xyz[dim * iv + 1], xyz[dim * iv + 2], (int)(boundary_flag[iv]), A_ana[iv], A_num[iv], fabs(A_ana[iv] - A_num[iv]), fabs(A_ana[iv] - A_num[iv]) / divide);
+            fprintf(file, "%i,%.16g,%.16g,%.16g,%i,%.16g,%.16g,%.16g,%.16g\n", iv, xyz[dim * iv], xyz[dim * iv + 1], xyz[dim * iv + 2], (int)(boundary_flag[iv]), A_ana[iv], A_num[iv], fabs(A_ana[iv] - A_num[iv]), fabs(A_ana[iv] - A_num[iv]) / divide);
+    }
+    fclose(file);
+}
+
+void write_csv(vector<double> &xyz, vector<bool> &boundary_flag, int dim, const char *file_name)
+{
+    FILE *file;
+    file = fopen(file_name, "w");
+    int nr = boundary_flag.size();
+    if (dim == 2)
+        fprintf(file, "iv,x,y,boundary_flag\n");
+    else
+        fprintf(file, "iv,x,y,z,boundary_flag\n");
+    for (int iv = 0; iv < nr; iv++)
+    {
+        if (dim == 2)
+            fprintf(file, "%i,%.16g,%.16g,%i\n", iv, xyz[dim * iv], xyz[dim * iv + 1], (int)(boundary_flag[iv]));
+        else
+            fprintf(file, "%i,%.16g,%.16g,%.16g,%i\n", iv, xyz[dim * iv], xyz[dim * iv + 1], xyz[dim * iv + 2], (int)(boundary_flag[iv]));
+    }
+    fclose(file);
+}
+
+void write_csv(vector<double> &xyz, vector<bool> &boundary_flag, vector<bool> &periodic_bc_flag, int dim, const char *file_name)
+{
+    FILE *file;
+    file = fopen(file_name, "w");
+    int nr = boundary_flag.size();
+    if (dim == 2)
+        fprintf(file, "iv,x,y,boundary_flag,periodic_bc_flag\n");
+    else
+        fprintf(file, "iv,x,y,z,boundary_flag,periodic_bc_flag\n");
+    for (int iv = 0; iv < nr; iv++)
+    {
+        if (dim == 2)
+            fprintf(file, "%i,%.16g,%.16g,%i,%i\n", iv, xyz[dim * iv], xyz[dim * iv + 1], (int)(boundary_flag[iv]), (int)(periodic_bc_flag[iv]));
+        else
+            fprintf(file, "%i,%.16g,%.16g,%.16g,%i,%i\n", iv, xyz[dim * iv], xyz[dim * iv + 1], xyz[dim * iv + 2], (int)(boundary_flag[iv]), (int)(periodic_bc_flag[iv]));
+    }
+    fclose(file);
+}
+
+void write_csv(vector<double> &xyz, vector<bool> &boundary_flag, vector<bool> &periodic_bc_flag, vector<int> &periodic_bc_section, int dim, const char *file_name)
+{
+    FILE *file;
+    file = fopen(file_name, "w");
+    int nr = boundary_flag.size();
+    if (dim == 2)
+        fprintf(file, "iv,x,y,boundary_flag,periodic_bc_flag,periodic_bc_section\n");
+    else
+        fprintf(file, "iv,x,y,z,boundary_flag,periodic_bc_flag,periodic_bc_section\n");
+    for (int iv = 0; iv < nr; iv++)
+    {
+        if (dim == 2)
+            fprintf(file, "%i,%.16g,%.16g,%i,%i,%i\n", iv, xyz[dim * iv], xyz[dim * iv + 1], (int)(boundary_flag[iv]), (int)(periodic_bc_flag[iv]), periodic_bc_section[iv]);
+        else
+            fprintf(file, "%i,%.16g,%.16g,%.16g,%i,%i,%i\n", iv, xyz[dim * iv], xyz[dim * iv + 1], xyz[dim * iv + 2], (int)(boundary_flag[iv]), (int)(periodic_bc_flag[iv]), periodic_bc_section[iv]);
     }
     fclose(file);
 }
@@ -340,7 +469,7 @@ void write_csv(vector<double> &vect, int nr, int nc, const char *file_name)
         fprintf(file, "%i,", ir);
         for (int ic = 0; ic < nc; ic++)
         {
-            fprintf(file, "%g,", vect[nc * ir + ic]);
+            fprintf(file, "%.16g,", vect[nc * ir + ic]);
         }
         fprintf(file, "\n");
     }
@@ -372,7 +501,7 @@ void write_csv(double *vect, int nr, int nc, const char *file_name)
         fprintf(file, "%i,", ir);
         for (int ic = 0; ic < nc; ic++)
         {
-            fprintf(file, "%g,", vect[nc * ir + ic]);
+            fprintf(file, "%.16g,", vect[nc * ir + ic]);
         }
         fprintf(file, "\n");
     }
@@ -438,7 +567,7 @@ void write_csv(vector<vector<double>> &a, const char *file_name)
         fprintf(file, "%i,", ir);
         for (int ic = 0; ic < a[ir].size(); ic++)
         {
-            fprintf(file, "%g,", a[ir][ic]);
+            fprintf(file, "%.16g,", a[ir][ic]);
         }
         fprintf(file, "\n ");
     }
@@ -457,7 +586,7 @@ void write_csv(vector<tuple<int, int, double>> &a, const char *file_name)
         row = get<0>(a[i]);
         col = get<1>(a[i]);
         value = get<2>(a[i]);
-        fprintf(file, "%i,%i,%g\n", row, col, value);
+        fprintf(file, "%i,%i,%.16g\n", row, col, value);
     }
     fclose(file);
 }
@@ -548,7 +677,8 @@ vector<int> argsort(const vector<double> &v)
     vector<int> idx(v.size(), 0.0);
     iota(idx.begin(), idx.end(), 0); //initialize original index locations
 
-    sort(idx.begin(), idx.end(), [&v](size_t i1, size_t i2) { return v[i1] < v[i2]; }); //sort indices based on comparing values in v
+    sort(idx.begin(), idx.end(), [&v](size_t i1, size_t i2)
+         { return v[i1] < v[i2]; }); //sort indices based on comparing values in v
 
     return idx;
 }

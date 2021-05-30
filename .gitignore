@@ -19,7 +19,6 @@
 *.dat
 .json
 *.pyc
-*.csv
 *.stl
 out
 *.json

@@ -327,15 +327,76 @@ double calc_PHS_RBF_grad_laplace_single_vert(vector<double> &vert, PARAMETERS &p
     return cond_num;
 }
 
-vector<vector<int>> calc_cloud_points_slow(vector<double> &xyz_probe, POINTS &points, PARAMETERS &parameters)
+void calc_cloud_points_slow_periodic_bc(vector<vector<int>> &cloud_points, vector<double> &xyz_probe, POINTS &points, PARAMETERS &parameters, vector<vector<int>> &periodic_bc_section)
 { //size of xyz_probe: [nv_probe, dim] (nv_probe: no. of points)
+    vector<int> ind_p = parameters.periodic_bc_index;
+    if (ind_p.size() == 0)
+    {
+        cout << "\n\nERROR from calc_cloud_points_slow_periodic_bc defined only for peridic bc case\n\n";
+        throw bad_exception();
+    }
+    vector<double> dist_square, k_min_dist_square;
+    vector<int> k_min_points;
+    for (int iv = 0; iv < points.nv; iv++)
+        dist_square.push_back(0.0); //initialize
+    int k = parameters.cloud_size, dim = parameters.dimension, nv_probe = ((int)(xyz_probe.size() / dim));
+    vector<int> empty_int;
+    // vector<vector<int>> periodic_bc_section; //takes values [-1,0,1] for [near_min,middle,near_max] sections respectively: size [nv_probe][no. of periodic axes]
+    for (int iv = 0; iv < nv_probe; iv++)
+    {
+        periodic_bc_section.push_back(empty_int);
+        for (int ip = 0; ip < ind_p.size(); ip++)
+            periodic_bc_section[iv].push_back(100);
+    }
+    double xyz_1, xyz_2;
+    for (int ivp = 0; ivp < nv_probe; ivp++) //takes values [-1,0,1] for [near_min,middle,near_max] sections respectively
+        for (int ip = 0; ip < ind_p.size(); ip++)
+        {
+            xyz_1 = points.xyz_min[ind_p[ip]] + (points.xyz_length[ind_p[ip]] / 3.0);
+            xyz_2 = points.xyz_min[ind_p[ip]] + (2.0 * points.xyz_length[ind_p[ip]] / 3.0);
+            if (xyz_probe[dim * ivp + ind_p[ip]] < xyz_1)
+                periodic_bc_section[ivp][ip] = -1; //section in range [min, xyz_1)
+            else if ((xyz_1 <= xyz_probe[dim * ivp + ind_p[ip]]) && (xyz_probe[dim * ivp + ind_p[ip]] <= xyz_2))
+                periodic_bc_section[ivp][ip] = 0; //section in range [xyz_1 -> xyz_2]
+            else
+                periodic_bc_section[ivp][ip] = 1; //section in range (xyz_2, max]}
+        }
+    vector<double> xyz_p, xyz;
+    for (int id = 0; id < dim; id++)
+        xyz_p.push_back(0.0), xyz.push_back(0.0);
+    for (int ivp = 0; ivp < nv_probe; ivp++)
+    {
+        for (int id = 0; id < dim; id++)
+            xyz_p[id] = xyz_probe[dim * ivp + id];
+        for (int iv = 0; iv < points.nv; iv++)
+        {
+            for (int id = 0; id < dim; id++)
+                xyz[id] = points.xyz[dim * iv + id];
+            for (int ip = 0; ip < ind_p.size(); ip++)
+                if (periodic_bc_section[ivp][ip] == -points.periodic_bc_section[iv][ip])
+                    xyz[ind_p[ip]] = xyz[ind_p[ip]] + (periodic_bc_section[ivp][ip] * points.xyz_length[ind_p[ip]]);
+            dist_square[iv] = 0.0;
+            for (int id = 0; id < dim; id++)
+                dist_square[iv] = dist_square[iv] + (xyz_p[id] - xyz[id]) * (xyz_p[id] - xyz[id]);
+        }
+        k_smallest_elements(k_min_dist_square, k_min_points, dist_square, k);
+        cloud_points.push_back(k_min_points);
+    }
+}
+
+void calc_cloud_points_slow(vector<vector<int>> &cloud_points, vector<double> &xyz_probe, POINTS &points, PARAMETERS &parameters)
+{ //size of xyz_probe: [nv_probe, dim] (nv_probe: no. of points)
+    if (parameters.periodic_bc_index.size() > 0)
+    {
+        cout << "\n\nERROR from calc_cloud_points_slow defined only for non-peridic bc case\n\n";
+        throw bad_exception();
+    }
     vector<double> dist_square, k_min_dist_square;
     vector<int> k_min_points;
     for (int iv = 0; iv < points.nv; iv++)
         dist_square.push_back(0.0); //initialize
     double xp, yp, zp;
     int k = parameters.cloud_size, dim = parameters.dimension, nv_probe = ((int)(xyz_probe.size() / dim));
-    vector<vector<int>> nb_points;
     if (dim == 2) //2D problem
         for (int ivp = 0; ivp < nv_probe; ivp++)
         {
@@ -346,7 +407,7 @@ vector<vector<int>> calc_cloud_points_slow(vector<double> &xyz_probe, POINTS &po
                 dist_square[iv] = dist_square[iv] + (yp - points.xyz[dim * iv + 1]) * (yp - points.xyz[dim * iv + 1]);
             }
             k_smallest_elements(k_min_dist_square, k_min_points, dist_square, k);
-            nb_points.push_back(k_min_points);
+            cloud_points.push_back(k_min_points);
         }
     else //3D problem
         for (int ivp = 0; ivp < nv_probe; ivp++)
@@ -359,12 +420,11 @@ vector<vector<int>> calc_cloud_points_slow(vector<double> &xyz_probe, POINTS &po
                 dist_square[iv] = dist_square[iv] + (zp - points.xyz[dim * iv + 2]) * (zp - points.xyz[dim * iv + 2]);
             }
             k_smallest_elements(k_min_dist_square, k_min_points, dist_square, k);
-            nb_points.push_back(k_min_points);
+            cloud_points.push_back(k_min_points);
         }
     dist_square.clear();
     k_min_dist_square.clear();
     k_min_points.clear();
-    return nb_points;
 }
 
 void calc_PHS_RBF_interp_single_vert_rhs(double *xyz_interp, vector<double> &vert, PARAMETERS &parameters, Eigen::VectorXd &rhs)
@@ -402,9 +462,14 @@ Eigen::SparseMatrix<double, Eigen::RowMajor> calc_interp_matrix(vector<double> &
     Eigen::VectorXd rhs = Eigen::VectorXd::Zero(parameters.cloud_size + parameters.num_poly_terms);
     Eigen::VectorXd answer = Eigen::VectorXd::Zero(parameters.cloud_size + parameters.num_poly_terms);
     Eigen::VectorXd interp_coeff = Eigen::VectorXd::Zero(parameters.cloud_size);
-    vector<vector<int>> cloud_points = calc_cloud_points_slow(xyz_probe, points, parameters);
+    vector<vector<int>> cloud_points, periodic_bc_section;
+    vector<int> ind_p = parameters.periodic_bc_index;
+    if (ind_p.size() == 0) //non-periodic case
+        calc_cloud_points_slow(cloud_points, xyz_probe, points, parameters);
+    else //periodic case
+        calc_cloud_points_slow_periodic_bc(cloud_points, xyz_probe, points, parameters, periodic_bc_section);
     vector<double> vert;
-    double scale[3], xyz_probe_temp[3];
+    double scale[3], xyz_p[3], xyz[3];
     vector<Eigen::Triplet<double>> triplet;
 
     for (int ivp = 0; ivp < nv_probe; ivp++)
@@ -412,14 +477,22 @@ Eigen::SparseMatrix<double, Eigen::RowMajor> calc_interp_matrix(vector<double> &
         for (int i1 = 0; i1 < cloud_points[ivp].size(); i1++)
         {
             iv_nb = cloud_points[ivp][i1];
-            for (int i = 0; i < dim; i++)
-                vert.push_back(points.xyz[dim * iv_nb + i]);
+            for (int id = 0; id < dim; id++)
+                xyz[id] = points.xyz[dim * iv_nb + id];
+            if (ind_p.size() > 0)
+            { //periodic case
+                for (int ip = 0; ip < ind_p.size(); ip++)
+                    if (periodic_bc_section[ivp][ip] == -points.periodic_bc_section[iv_nb][ip])
+                        xyz[ind_p[ip]] = xyz[ind_p[ip]] + (periodic_bc_section[ivp][ip] * points.xyz_length[ind_p[ip]]);
+            }
+            for (int id = 0; id < dim; id++)
+                vert.push_back(xyz[id]);
         }
         for (int i1 = 0; i1 < dim; i1++)
-            xyz_probe_temp[i1] = xyz_probe[dim * ivp + i1];
-        shifting_scaling(xyz_probe_temp, vert, scale, dim);
+            xyz_p[i1] = xyz_probe[dim * ivp + i1];
+        shifting_scaling(xyz_p, vert, scale, dim);
         calc_PHS_RBF_grad_laplace_single_vert_A(vert, parameters, A, scale);
-        calc_PHS_RBF_interp_single_vert_rhs(xyz_probe_temp, vert, parameters, rhs);
+        calc_PHS_RBF_interp_single_vert_rhs(xyz_p, vert, parameters, rhs);
         answer = A.partialPivLu().solve(rhs); //fullPivLu: slow but stable for high condition numbers; partialPivLu: fast but unstable for high condition numbers
         cond_num = 1.0 / A.partialPivLu().rcond();
         for (int i1 = 0; i1 < parameters.cloud_size; i1++)

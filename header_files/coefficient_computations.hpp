@@ -44,7 +44,9 @@ void calc_PHS_RBF_grad_laplace_single_vert_laplacian_rhs(vector<double> &vert, P
 
 double calc_PHS_RBF_grad_laplace_single_vert(vector<double> &vert, PARAMETERS &parameters, Eigen::MatrixXd &laplacian, Eigen::MatrixXd &grad_x, Eigen::MatrixXd &grad_y, Eigen::MatrixXd &grad_z, double *scale, vector<int> &central_vert_list);
 
-vector<vector<int>> calc_cloud_points_slow(vector<double> &xyz_probe, POINTS &points, PARAMETERS &parameters);
+void calc_cloud_points_slow(vector<vector<int>> &cloud_points, vector<double> &xyz_probe, POINTS &points, PARAMETERS &parameters);
+
+void calc_cloud_points_slow_periodic_bc(vector<vector<int>> &cloud_points, vector<double> &xyz_probe, POINTS &points, PARAMETERS &parameters, vector<vector<int>> &periodic_bc_section);
 
 Eigen::SparseMatrix<double, Eigen::RowMajor> calc_interp_matrix(vector<double> &xyz_probe, POINTS &points, PARAMETERS &parameters);
 

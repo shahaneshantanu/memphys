@@ -1,5 +1,5 @@
 # Author: Dr. Shantanu Shahane
-OBJS = general_functions.o parameters.o points.o coefficient_computations.o cloud.o solver.o navier_stokes.o postprocessing_functions.o
+OBJS = general_functions.o parameters.o points.o coefficient_computations.o cloud.o solver.o postprocessing_functions.o
 CC = mpicxx
 DEBUG = -g
 HYPRE_DIR = ../../../C_libraries/hypre-2.11.1/src/hypre#HYPRE
@@ -29,9 +29,6 @@ solver.o : ../../header_files/solver.cpp ../../header_files/class.hpp ../../head
 coefficient_computations.o : ../../header_files/coefficient_computations.cpp ../../header_files/class.hpp ../../header_files/general_functions.hpp
 	$(CC) $(CFLAGS) ../../header_files/coefficient_computations.cpp
 
-navier_stokes.o : ../../header_files/navier_stokes.cpp ../../header_files/class.hpp ../../header_files/general_functions.hpp
-	$(CC) $(CFLAGS) ../../header_files/navier_stokes.cpp
-
 postprocessing_functions.o : ../../header_files/postprocessing_functions.cpp ../../header_files/class.hpp ../../header_files/general_functions.hpp
 	$(CC) $(CFLAGS) ../../header_files/postprocessing_functions.cpp
 
@@ -46,10 +43,20 @@ heat_conduction.o : heat_conduction.cpp ../../header_files/class.hpp ../../heade
 heat_conduction : $(OBJS) heat_conduction.o
 	$(CC) $(PROFLAGS) -o out heat_conduction.o $(OBJS) $(LIBS)
 
+heat_conduction_periodic.o : heat_conduction_periodic.cpp ../../header_files/class.hpp ../../header_files/general_functions.hpp
+	$(CC) $(CFLAGS) $(LFLAGS) $(LIBS) -I $(INCLUDE) heat_conduction_periodic.cpp
+heat_conduction_periodic : $(OBJS) heat_conduction_periodic.o
+	$(CC) $(PROFLAGS) -o out heat_conduction_periodic.o $(OBJS) $(LIBS)
+
 heat_conduction_manuf_soln.o : heat_conduction_manuf_soln.cpp ../../header_files/class.hpp ../../header_files/general_functions.hpp
 	$(CC) $(CFLAGS) $(LFLAGS) $(LIBS) -I $(INCLUDE) heat_conduction_manuf_soln.cpp
 heat_conduction_manuf_soln : $(OBJS) heat_conduction_manuf_soln.o
 	$(CC) $(PROFLAGS) -o out heat_conduction_manuf_soln.o $(OBJS) $(LIBS)
+
+heat_conduction_manuf_soln_periodic.o : heat_conduction_manuf_soln_periodic.cpp ../../header_files/class.hpp ../../header_files/general_functions.hpp
+	$(CC) $(CFLAGS) $(LFLAGS) $(LIBS) -I $(INCLUDE) heat_conduction_manuf_soln_periodic.cpp
+heat_conduction_manuf_soln_periodic : $(OBJS) heat_conduction_manuf_soln_periodic.o
+	$(CC) $(PROFLAGS) -o out heat_conduction_manuf_soln_periodic.o $(OBJS) $(LIBS)
 
 heat_conduction_manuf_soln_SOR.o : heat_conduction_manuf_soln_SOR.cpp ../../header_files/class.hpp ../../header_files/general_functions.hpp
 	$(CC) $(CFLAGS) $(LFLAGS) $(LIBS) -I $(INCLUDE) heat_conduction_manuf_soln_SOR.cpp
@@ -80,3 +87,6 @@ scalar_transport_implicit : $(OBJS) scalar_transport_implicit.o
 
 clean:
 	rm -f *.o out *.out
+rm_sim_files:
+	find . -maxdepth 1 ! -name 'parameters_file.csv' -name '*.csv' -delete
+	rm -f *.plt

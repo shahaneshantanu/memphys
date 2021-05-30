@@ -58,6 +58,8 @@ void print_to_terminal(vector<int> &sp_row, vector<int> &sp_col, const char *tex
 
 void print_to_terminal(Eigen::MatrixXd &A, const char *text);
 
+void print_to_terminal(Eigen::MatrixXcd &A, const char *text);
+
 void print_to_terminal(Eigen::MatrixXi &A, const char *text);
 
 void print_to_terminal(Eigen::SparseMatrix<double, Eigen::RowMajor> &A, const char *text);
@@ -72,7 +74,19 @@ void write_csv(double *vect, int nr, int nc, const char *file_name);
 
 void write_csv(Eigen::MatrixXd &A, const char *file_name);
 
+void write_csv(Eigen::MatrixXcd &A, const char *file_name);
+
 void write_csv(Eigen::VectorXd &A, const char *file_name);
+
+void write_csv_benchmark(vector<double> &xyz_interp, Eigen::VectorXd &reference, Eigen::VectorXd &simulation, const char *file_name, int dimension);
+
+void write_csv_benchmark(vector<double> &xyz_interp, Eigen::VectorXd &simulation, const char *file_name, int dimension);
+
+void write_csv(vector<double> &xyz, vector<bool> &boundary_flag, int dim, const char *file_name);
+
+void write_csv(vector<double> &xyz, vector<bool> &boundary_flag, vector<bool> &periodic_bc_flag, int dim, const char *file_name);
+
+void write_csv(vector<double> &xyz, vector<bool> &boundary_flag, vector<bool> &periodic_bc_flag, vector<int> &periodic_bc_section, int dim, const char *file_name);
 
 void write_csv(vector<double> &xyz, vector<bool> &boundary_flag, Eigen::VectorXd &A_ana, Eigen::VectorXd &A_num, int dim, const char *file_name);
 

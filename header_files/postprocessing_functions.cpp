@@ -149,6 +149,188 @@ void write_simulation_details(POINTS &points, CLOUD &cloud, PARAMETERS &paramete
     cout << "\nwrite_simulation_details wrote " << output_file << "\n\n";
 }
 
+void calc_navier_stokes_errors_2D(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &u_ana, Eigen::VectorXd &v_ana, Eigen::VectorXd &p_ana, Eigen::VectorXd &u_num, Eigen::VectorXd &v_num, Eigen::VectorXd &p_num)
+{
+    cout << "\ncalc_navier_stokes_errors_2D started (max., avg.)\n";
+    double max_err, l1_err, max_err_boundary, l1_err_boundary, max_err_internal, l1_err_internal;
+    Eigen::VectorXd zero_vector = Eigen::VectorXd::Zero(points.nv), residual = zero_vector;
+
+    residual = (points.grad_x_matrix_EIGEN * u_num) + (points.grad_y_matrix_EIGEN * v_num);
+    calc_max_l1_error(zero_vector, residual, max_err_boundary, l1_err_boundary, max_err_internal, l1_err_internal, points.boundary_flag);
+    calc_max_l1_error(zero_vector, residual, max_err, l1_err);
+    printf("    continuity: internal: (%g, %g), boundary: (%g, %g), overall: (%g, %g)\n", max_err_internal, l1_err_internal, max_err_boundary, l1_err_boundary, max_err, l1_err);
+
+    calc_max_l1_error(u_ana, u_num, max_err_boundary, l1_err_boundary, max_err_internal, l1_err_internal, points.boundary_flag);
+    calc_max_l1_error(u_ana, u_num, max_err, l1_err);
+    printf("    U X-vel: internal: (%g, %g), boundary: (%g, %g), overall: (%g, %g)\n", max_err_internal, l1_err_internal, max_err_boundary, l1_err_boundary, max_err, l1_err);
+
+    calc_max_l1_error(v_ana, v_num, max_err_boundary, l1_err_boundary, max_err_internal, l1_err_internal, points.boundary_flag);
+    calc_max_l1_error(v_ana, v_num, max_err, l1_err);
+    printf("    V Y-vel: internal: (%g, %g), boundary: (%g, %g), overall: (%g, %g)\n", max_err_internal, l1_err_internal, max_err_boundary, l1_err_boundary, max_err, l1_err);
+
+    p_num = p_num - (Eigen::VectorXd::Ones(p_num.size()) * (p_num[0] - p_ana[0])); //reset level to analytical solution
+    if (p_ana.rows() == points.nv + 1)
+        p_ana[points.nv] = 0.0, p_num[points.nv] = 0.0;
+    calc_max_l1_error(p_ana, p_num, max_err_boundary, l1_err_boundary, max_err_internal, l1_err_internal, points.boundary_flag);
+    calc_max_l1_error(p_ana, p_num, max_err, l1_err);
+    printf("    Pressure: internal: (%g, %g), boundary: (%g, %g), overall: (%g, %g)\n", max_err_internal, l1_err_internal, max_err_boundary, l1_err_boundary, max_err, l1_err);
+    cout << "calc_navier_stokes_errors_2D ended (max., avg.)\n";
+}
+
+void calc_navier_stokes_residuals_2D(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &u, Eigen::VectorXd &v, Eigen::VectorXd &p)
+{
+    if (parameters.rho < 0 || parameters.mu < 0)
+    {
+        printf("\n\nERROR from calc_navier_stokes_residuals_2D Some parameters are not set; parameters.rho: %g, parameters.mu: %g\n\n", parameters.rho, parameters.mu);
+        throw bad_exception();
+    }
+    cout << "\ncalc_navier_stokes_residuals_2D started (max., avg.)\n";
+    double max_err, l1_err, max_err_boundary, l1_err_boundary, max_err_internal, l1_err_internal;
+    Eigen::VectorXd zero_vector = Eigen::VectorXd::Zero(points.nv), residual = zero_vector;
+    residual = (points.grad_x_matrix_EIGEN * u) + (points.grad_y_matrix_EIGEN * v);
+    calc_max_l1_error(zero_vector, residual, max_err_boundary, l1_err_boundary, max_err_internal, l1_err_internal, points.boundary_flag);
+    calc_max_l1_error(zero_vector, residual, max_err, l1_err);
+    printf("    continuity: internal: (%g, %g), boundary: (%g, %g), overall: (%g, %g)\n", max_err_internal, l1_err_internal, max_err_boundary, l1_err_boundary, max_err, l1_err);
+
+    residual = u.cwiseProduct(points.grad_x_matrix_EIGEN * u) + v.cwiseProduct(points.grad_y_matrix_EIGEN * u) - (parameters.mu * points.laplacian_matrix_EIGEN * u / parameters.rho) + (points.grad_x_matrix_EIGEN * p.head(points.nv) / parameters.rho);
+    calc_max_l1_error(zero_vector, residual, max_err_boundary, l1_err_boundary, max_err_internal, l1_err_internal, points.boundary_flag);
+    calc_max_l1_error(zero_vector, residual, max_err, l1_err);
+    printf("    X-mom: internal: (%g, %g), boundary: (%g, %g), overall: (%g, %g)\n", max_err_internal, l1_err_internal, max_err_boundary, l1_err_boundary, max_err, l1_err);
+
+    residual = u.cwiseProduct(points.grad_x_matrix_EIGEN * v) + v.cwiseProduct(points.grad_y_matrix_EIGEN * v) - (parameters.mu * points.laplacian_matrix_EIGEN * v / parameters.rho) + (points.grad_y_matrix_EIGEN * p.head(points.nv) / parameters.rho);
+    calc_max_l1_error(zero_vector, residual, max_err_boundary, l1_err_boundary, max_err_internal, l1_err_internal, points.boundary_flag);
+    calc_max_l1_error(zero_vector, residual, max_err, l1_err);
+    printf("    Y-mom: internal: (%g, %g), boundary: (%g, %g), overall: (%g, %g)\n", max_err_internal, l1_err_internal, max_err_boundary, l1_err_boundary, max_err, l1_err);
+
+    cout << "calc_navier_stokes_residuals_2D ended (max., avg.)\n\n";
+}
+
+void calc_navier_stokes_residuals_2D(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &u, Eigen::VectorXd &v, Eigen::VectorXd &p, Eigen::VectorXd &body_force_x, Eigen::VectorXd &body_force_y)
+{
+    if (parameters.rho < 0 || parameters.mu < 0)
+    {
+        printf("\n\nERROR from calc_navier_stokes_residuals_2D Some parameters are not set; parameters.rho: %g, parameters.mu: %g\n\n", parameters.rho, parameters.mu);
+        throw bad_exception();
+    }
+    cout << "\ncalc_navier_stokes_residuals_2D started (max., avg.)\n";
+    double max_err, l1_err, max_err_boundary, l1_err_boundary, max_err_internal, l1_err_internal;
+    Eigen::VectorXd zero_vector = Eigen::VectorXd::Zero(points.nv), residual = zero_vector;
+    residual = (points.grad_x_matrix_EIGEN * u) + (points.grad_y_matrix_EIGEN * v);
+    calc_max_l1_error(zero_vector, residual, max_err_boundary, l1_err_boundary, max_err_internal, l1_err_internal, points.boundary_flag);
+    calc_max_l1_error(zero_vector, residual, max_err, l1_err);
+    printf("    continuity: internal: (%g, %g), boundary: (%g, %g), overall: (%g, %g)\n", max_err_internal, l1_err_internal, max_err_boundary, l1_err_boundary, max_err, l1_err);
+
+    residual = u.cwiseProduct(points.grad_x_matrix_EIGEN * u) + v.cwiseProduct(points.grad_y_matrix_EIGEN * u) - (parameters.mu * points.laplacian_matrix_EIGEN * u / parameters.rho) + (points.grad_x_matrix_EIGEN * p.head(points.nv) / parameters.rho) - (body_force_x / parameters.rho);
+    calc_max_l1_error(zero_vector, residual, max_err_boundary, l1_err_boundary, max_err_internal, l1_err_internal, points.boundary_flag);
+    calc_max_l1_error(zero_vector, residual, max_err, l1_err);
+    printf("    X-mom: internal: (%g, %g), boundary: (%g, %g), overall: (%g, %g)\n", max_err_internal, l1_err_internal, max_err_boundary, l1_err_boundary, max_err, l1_err);
+
+    residual = u.cwiseProduct(points.grad_x_matrix_EIGEN * v) + v.cwiseProduct(points.grad_y_matrix_EIGEN * v) - (parameters.mu * points.laplacian_matrix_EIGEN * v / parameters.rho) + (points.grad_y_matrix_EIGEN * p.head(points.nv) / parameters.rho) - (body_force_y / parameters.rho);
+    calc_max_l1_error(zero_vector, residual, max_err_boundary, l1_err_boundary, max_err_internal, l1_err_internal, points.boundary_flag);
+    calc_max_l1_error(zero_vector, residual, max_err, l1_err);
+    printf("    Y-mom: internal: (%g, %g), boundary: (%g, %g), overall: (%g, %g)\n", max_err_internal, l1_err_internal, max_err_boundary, l1_err_boundary, max_err, l1_err);
+
+    cout << "calc_navier_stokes_residuals_2D ended (max., avg.)\n\n";
+}
+
+void calc_navier_stokes_residuals_3D(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &u, Eigen::VectorXd &v, Eigen::VectorXd &w, Eigen::VectorXd &p)
+{
+    if (parameters.rho < 0 || parameters.mu < 0)
+    {
+        printf("\n\nERROR from calc_navier_stokes_residuals_3D Some parameters are not set; parameters.rho: %g, parameters.mu: %g\n\n", parameters.rho, parameters.mu);
+        throw bad_exception();
+    }
+    cout << "\ncalc_navier_stokes_residuals_3D started (max., avg.)\n";
+    double max_err, l1_err, max_err_boundary, l1_err_boundary, max_err_internal, l1_err_internal;
+    Eigen::VectorXd zero_vector = Eigen::VectorXd::Zero(points.nv), residual = zero_vector;
+    residual = (points.grad_x_matrix_EIGEN * u) + (points.grad_y_matrix_EIGEN * v) + (points.grad_z_matrix_EIGEN * w);
+    calc_max_l1_error(zero_vector, residual, max_err_boundary, l1_err_boundary, max_err_internal, l1_err_internal, points.boundary_flag);
+    calc_max_l1_error(zero_vector, residual, max_err, l1_err);
+    printf("    continuity: internal: (%g, %g), boundary: (%g, %g), overall: (%g, %g)\n", max_err_internal, l1_err_internal, max_err_boundary, l1_err_boundary, max_err, l1_err);
+
+    residual = u.cwiseProduct(points.grad_x_matrix_EIGEN * u) + v.cwiseProduct(points.grad_y_matrix_EIGEN * u) + w.cwiseProduct(points.grad_z_matrix_EIGEN * u) - (parameters.mu * points.laplacian_matrix_EIGEN * u / parameters.rho) + (points.grad_x_matrix_EIGEN * p.head(points.nv) / parameters.rho);
+    calc_max_l1_error(zero_vector, residual, max_err_boundary, l1_err_boundary, max_err_internal, l1_err_internal, points.boundary_flag);
+    calc_max_l1_error(zero_vector, residual, max_err, l1_err);
+    printf("    X-mom: internal: (%g, %g), boundary: (%g, %g), overall: (%g, %g)\n", max_err_internal, l1_err_internal, max_err_boundary, l1_err_boundary, max_err, l1_err);
+
+    residual = u.cwiseProduct(points.grad_x_matrix_EIGEN * v) + v.cwiseProduct(points.grad_y_matrix_EIGEN * v) + w.cwiseProduct(points.grad_z_matrix_EIGEN * v) - (parameters.mu * points.laplacian_matrix_EIGEN * v / parameters.rho) + (points.grad_y_matrix_EIGEN * p.head(points.nv) / parameters.rho);
+    calc_max_l1_error(zero_vector, residual, max_err_boundary, l1_err_boundary, max_err_internal, l1_err_internal, points.boundary_flag);
+    calc_max_l1_error(zero_vector, residual, max_err, l1_err);
+    printf("    Y-mom: internal: (%g, %g), boundary: (%g, %g), overall: (%g, %g)\n", max_err_internal, l1_err_internal, max_err_boundary, l1_err_boundary, max_err, l1_err);
+
+    residual = u.cwiseProduct(points.grad_x_matrix_EIGEN * w) + v.cwiseProduct(points.grad_y_matrix_EIGEN * w) + w.cwiseProduct(points.grad_z_matrix_EIGEN * w) - (parameters.mu * points.laplacian_matrix_EIGEN * w / parameters.rho) + (points.grad_z_matrix_EIGEN * p.head(points.nv) / parameters.rho);
+    calc_max_l1_error(zero_vector, residual, max_err_boundary, l1_err_boundary, max_err_internal, l1_err_internal, points.boundary_flag);
+    calc_max_l1_error(zero_vector, residual, max_err, l1_err);
+    printf("    Z-mom: internal: (%g, %g), boundary: (%g, %g), overall: (%g, %g)\n", max_err_internal, l1_err_internal, max_err_boundary, l1_err_boundary, max_err, l1_err);
+
+    cout << "calc_navier_stokes_residuals_3D ended (max., avg.)\n\n";
+}
+
+void calc_navier_stokes_residuals_3D(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &u, Eigen::VectorXd &v, Eigen::VectorXd &w, Eigen::VectorXd &p, Eigen::VectorXd &body_force_x, Eigen::VectorXd &body_force_y, Eigen::VectorXd &body_force_z)
+{
+    if (parameters.rho < 0 || parameters.mu < 0)
+    {
+        printf("\n\nERROR from calc_navier_stokes_residuals_3D Some parameters are not set; parameters.rho: %g, parameters.mu: %g\n\n", parameters.rho, parameters.mu);
+        throw bad_exception();
+    }
+    cout << "\ncalc_navier_stokes_residuals_3D started (max., avg.)\n";
+    double max_err, l1_err, max_err_boundary, l1_err_boundary, max_err_internal, l1_err_internal;
+    Eigen::VectorXd zero_vector = Eigen::VectorXd::Zero(points.nv), residual = zero_vector;
+    residual = (points.grad_x_matrix_EIGEN * u) + (points.grad_y_matrix_EIGEN * v) + (points.grad_z_matrix_EIGEN * w);
+    calc_max_l1_error(zero_vector, residual, max_err_boundary, l1_err_boundary, max_err_internal, l1_err_internal, points.boundary_flag);
+    calc_max_l1_error(zero_vector, residual, max_err, l1_err);
+    printf("    continuity: internal: (%g, %g), boundary: (%g, %g), overall: (%g, %g)\n", max_err_internal, l1_err_internal, max_err_boundary, l1_err_boundary, max_err, l1_err);
+
+    residual = u.cwiseProduct(points.grad_x_matrix_EIGEN * u) + v.cwiseProduct(points.grad_y_matrix_EIGEN * u) + w.cwiseProduct(points.grad_z_matrix_EIGEN * u) - (parameters.mu * points.laplacian_matrix_EIGEN * u / parameters.rho) + (points.grad_x_matrix_EIGEN * p.head(points.nv) / parameters.rho) - (body_force_x / parameters.rho);
+    calc_max_l1_error(zero_vector, residual, max_err_boundary, l1_err_boundary, max_err_internal, l1_err_internal, points.boundary_flag);
+    calc_max_l1_error(zero_vector, residual, max_err, l1_err);
+    printf("    X-mom: internal: (%g, %g), boundary: (%g, %g), overall: (%g, %g)\n", max_err_internal, l1_err_internal, max_err_boundary, l1_err_boundary, max_err, l1_err);
+
+    residual = u.cwiseProduct(points.grad_x_matrix_EIGEN * v) + v.cwiseProduct(points.grad_y_matrix_EIGEN * v) + w.cwiseProduct(points.grad_z_matrix_EIGEN * v) - (parameters.mu * points.laplacian_matrix_EIGEN * v / parameters.rho) + (points.grad_y_matrix_EIGEN * p.head(points.nv) / parameters.rho) - (body_force_y / parameters.rho);
+    calc_max_l1_error(zero_vector, residual, max_err_boundary, l1_err_boundary, max_err_internal, l1_err_internal, points.boundary_flag);
+    calc_max_l1_error(zero_vector, residual, max_err, l1_err);
+    printf("    Y-mom: internal: (%g, %g), boundary: (%g, %g), overall: (%g, %g)\n", max_err_internal, l1_err_internal, max_err_boundary, l1_err_boundary, max_err, l1_err);
+
+    residual = u.cwiseProduct(points.grad_x_matrix_EIGEN * w) + v.cwiseProduct(points.grad_y_matrix_EIGEN * w) + w.cwiseProduct(points.grad_z_matrix_EIGEN * w) - (parameters.mu * points.laplacian_matrix_EIGEN * w / parameters.rho) + (points.grad_z_matrix_EIGEN * p.head(points.nv) / parameters.rho) - (body_force_z / parameters.rho);
+    calc_max_l1_error(zero_vector, residual, max_err_boundary, l1_err_boundary, max_err_internal, l1_err_internal, points.boundary_flag);
+    calc_max_l1_error(zero_vector, residual, max_err, l1_err);
+    printf("    Z-mom: internal: (%g, %g), boundary: (%g, %g), overall: (%g, %g)\n", max_err_internal, l1_err_internal, max_err_boundary, l1_err_boundary, max_err, l1_err);
+
+    cout << "calc_navier_stokes_residuals_3D ended (max., avg.)\n\n";
+}
+
+void calc_navier_stokes_errors_3D(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &u_ana, Eigen::VectorXd &v_ana, Eigen::VectorXd &w_ana, Eigen::VectorXd &p_ana, Eigen::VectorXd &u_num, Eigen::VectorXd &v_num, Eigen::VectorXd &w_num, Eigen::VectorXd &p_num)
+{
+    cout << "\ncalc_navier_stokes_errors_3D started (max., avg.)\n";
+    double max_err, l1_err, max_err_boundary, l1_err_boundary, max_err_internal, l1_err_internal;
+    Eigen::VectorXd zero_vector = Eigen::VectorXd::Zero(points.nv), residual = zero_vector;
+
+    residual = (points.grad_x_matrix_EIGEN * u_num) + (points.grad_y_matrix_EIGEN * v_num) + (points.grad_z_matrix_EIGEN * w_num);
+    calc_max_l1_error(zero_vector, residual, max_err_boundary, l1_err_boundary, max_err_internal, l1_err_internal, points.boundary_flag);
+    calc_max_l1_error(zero_vector, residual, max_err, l1_err);
+    printf("    continuity: internal: (%g, %g), boundary: (%g, %g), overall: (%g, %g)\n", max_err_internal, l1_err_internal, max_err_boundary, l1_err_boundary, max_err, l1_err);
+
+    calc_max_l1_error(u_ana, u_num, max_err_boundary, l1_err_boundary, max_err_internal, l1_err_internal, points.boundary_flag);
+    calc_max_l1_error(u_ana, u_num, max_err, l1_err);
+    printf("    U X-vel: internal: (%g, %g), boundary: (%g, %g), overall: (%g, %g)\n", max_err_internal, l1_err_internal, max_err_boundary, l1_err_boundary, max_err, l1_err);
+
+    calc_max_l1_error(v_ana, v_num, max_err_boundary, l1_err_boundary, max_err_internal, l1_err_internal, points.boundary_flag);
+    calc_max_l1_error(v_ana, v_num, max_err, l1_err);
+    printf("    V Y-vel: internal: (%g, %g), boundary: (%g, %g), overall: (%g, %g)\n", max_err_internal, l1_err_internal, max_err_boundary, l1_err_boundary, max_err, l1_err);
+
+    calc_max_l1_error(w_ana, w_num, max_err_boundary, l1_err_boundary, max_err_internal, l1_err_internal, points.boundary_flag);
+    calc_max_l1_error(w_ana, w_num, max_err, l1_err);
+    printf("    W Z-vel: internal: (%g, %g), boundary: (%g, %g), overall: (%g, %g)\n", max_err_internal, l1_err_internal, max_err_boundary, l1_err_boundary, max_err, l1_err);
+
+    p_num.head(points.nv) = p_num.head(points.nv) - (Eigen::VectorXd::Ones(points.nv) * (p_num[0] - p_ana[0])); //reset level to analytical solution
+    if (p_ana.rows() == points.nv + 1)
+        p_ana[points.nv] = 0.0, p_num[points.nv] = 0.0;
+    calc_max_l1_error(p_ana, p_num, max_err_boundary, l1_err_boundary, max_err_internal, l1_err_internal, points.boundary_flag);
+    calc_max_l1_error(p_ana, p_num, max_err, l1_err);
+    printf("    Pressure: internal: (%g, %g), boundary: (%g, %g), overall: (%g, %g)\n", max_err_internal, l1_err_internal, max_err_boundary, l1_err_boundary, max_err, l1_err);
+    cout << "calc_navier_stokes_errors_3D ended (max., avg.)\n";
+}
+
 void write_navier_stokes_errors_2D(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &u_ana, Eigen::VectorXd &v_ana, Eigen::VectorXd &p_ana, Eigen::VectorXd &u_num, Eigen::VectorXd &v_num, Eigen::VectorXd &p_num)
 {
     FILE *file;
@@ -173,7 +355,7 @@ void write_navier_stokes_errors_2D(POINTS &points, PARAMETERS &parameters, Eigen
     calc_max_l1_error(v_ana, v_num, max_err, l1_err);
     fprintf(file, "V Y-vel,%.16g,%.16g,%.16g,%.16g,%.16g,%.16g\n", max_err_internal, l1_err_internal, max_err_boundary, l1_err_boundary, max_err, l1_err);
 
-    p_num = p_num - (Eigen::VectorXd::Ones(points.nv + 1) * (p_num[0] - p_ana[0])); //reset level to analytical solution
+    p_num = p_num - (Eigen::VectorXd::Ones(p_num.size()) * (p_num[0] - p_ana[0])); //reset level to analytical solution
     p_ana[points.nv] = 0.0, p_num[points.nv] = 0.0;
     calc_max_l1_error(p_ana, p_num, max_err_boundary, l1_err_boundary, max_err_internal, l1_err_internal, points.boundary_flag);
     calc_max_l1_error(p_ana, p_num, max_err, l1_err);
@@ -216,112 +398,23 @@ void write_navier_stokes_residuals_2D(POINTS &points, PARAMETERS &parameters, Ei
     cout << "\nwrite_navier_stokes_residuals_2D wrote " << output_file << "\n\n";
 }
 
-void write_navier_stokes_tecplot_2D(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &u_ana, Eigen::VectorXd &v_ana, Eigen::VectorXd &p_ana, Eigen::VectorXd &u_num, Eigen::VectorXd &v_num, Eigen::VectorXd &p_num)
+void write_tecplot_temporal_variables_header(POINTS &points, PARAMETERS &parameters, vector<string> &variable_names)
 {
-    int ncv = 0, iv1, dim = parameters.dimension;
-    for (int icv = 0; icv < points.elem_vert_original.size(); icv++)
-        if (points.elem_vert_original[icv].size() == 3)
-            ncv++;
     FILE *file;
-    string output_file = parameters.output_file_prefix + "_tecplot.plt";
-    file = fopen(output_file.c_str(), "w");
-    fprintf(file, "VARIABLES=\"x\", \"y\", \"u_num\", \"u_ana\", \"u_err\", \"v_num\", \"v_ana\", \"v_err\",\"p_num\", \"p_ana\", \"p_err\"\n");
-    fprintf(file, "ZONE T=\"%.16g\"  DATAPACKING=POINT, NODES=%i, ELEMENTS=%i, ZONETYPE=FETRIANGLE\n", 1.0, points.nv_original, ncv);
-    for (int iv0 = 0; iv0 < points.nv_original; iv0++)
-    {
-        iv1 = points.iv_original_nearest_vert[iv0];
-        fprintf(file, "%.16g %.16g", points.xyz_original[dim * iv0], points.xyz_original[dim * iv0 + 1]);
-        fprintf(file, " %.16g %.16g %.16g", u_num[iv1], u_ana[iv1], fabs(u_num[iv1] - u_ana[iv1]));
-        fprintf(file, " %.16g %.16g %.16g", v_num[iv1], v_ana[iv1], fabs(v_num[iv1] - v_ana[iv1]));
-        fprintf(file, " %.16g %.16g %.16g", p_num[iv1], p_ana[iv1], fabs(p_num[iv1] - p_ana[iv1]));
-        fprintf(file, "\n");
-    }
-
-    for (int icv = 0; icv < points.elem_vert_original.size(); icv++)
-        if (points.elem_vert_original[icv].size() == 3)
-        {
-            for (int i1 = 0; i1 < points.elem_vert_original[icv].size(); i1++)
-                fprintf(file, "%i ", points.elem_vert_original[icv][i1] + 1);
-            fprintf(file, "\n");
-        }
-    fclose(file);
-    cout << "\nwrite_navier_stokes_tecplot_2D wrote " << output_file << "\n\n";
-}
-
-void write_temperature_tecplot_2D(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &T_ana, Eigen::VectorXd &T_num)
-{
-    int ncv = 0, iv1, dim = parameters.dimension;
-    for (int icv = 0; icv < points.elem_vert_original.size(); icv++)
-        if (points.elem_vert_original[icv].size() == 3)
-            ncv++;
-    FILE *file;
-    string output_file = parameters.output_file_prefix + "_tecplot.plt";
-    file = fopen(output_file.c_str(), "w");
-    fprintf(file, "VARIABLES=\"x\", \"y\", \"T_num\", \"T_ana\", \"T_err\"\n");
-    fprintf(file, "ZONE T=\"%.16g\"  DATAPACKING=POINT, NODES=%i, ELEMENTS=%i, ZONETYPE=FETRIANGLE\n", 1.0, points.nv_original, ncv);
-    for (int iv0 = 0; iv0 < points.nv_original; iv0++)
-    {
-        iv1 = points.iv_original_nearest_vert[iv0];
-        fprintf(file, "%.16g %.16g", points.xyz_original[dim * iv0], points.xyz_original[dim * iv0 + 1]);
-        fprintf(file, " %.16g %.16g %.16g", T_num[iv1], T_ana[iv1], fabs(T_num[iv1] - T_ana[iv1]));
-        fprintf(file, "\n");
-    }
-
-    for (int icv = 0; icv < points.elem_vert_original.size(); icv++)
-        if (points.elem_vert_original[icv].size() == 3)
-        {
-            for (int i1 = 0; i1 < points.elem_vert_original[icv].size(); i1++)
-                fprintf(file, "%i ", points.elem_vert_original[icv][i1] + 1);
-            fprintf(file, "\n");
-        }
-    fclose(file);
-    cout << "\nwrite_temperature_tecplot_2D wrote " << output_file << "\n\n";
-}
-
-void write_temperature_tecplot_2D(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &T_num)
-{
-    int ncv = 0, iv1, dim = parameters.dimension;
-    for (int icv = 0; icv < points.elem_vert_original.size(); icv++)
-        if (points.elem_vert_original[icv].size() == 3)
-            ncv++;
-    FILE *file;
-    string output_file = parameters.output_file_prefix + "_tecplot.plt";
-    file = fopen(output_file.c_str(), "w");
-    fprintf(file, "VARIABLES=\"x\", \"y\", \"T_num\"\n");
-    fprintf(file, "ZONE T=\"%.16g\"  DATAPACKING=POINT, NODES=%i, ELEMENTS=%i, ZONETYPE=FETRIANGLE\n", 1.0, points.nv_original, ncv);
-    for (int iv0 = 0; iv0 < points.nv_original; iv0++)
-    {
-        iv1 = points.iv_original_nearest_vert[iv0];
-        fprintf(file, "%.16g %.16g", points.xyz_original[dim * iv0], points.xyz_original[dim * iv0 + 1]);
-        fprintf(file, " %.16g", T_num[iv1]);
-        fprintf(file, "\n");
-    }
-
-    for (int icv = 0; icv < points.elem_vert_original.size(); icv++)
-        if (points.elem_vert_original[icv].size() == 3)
-        {
-            for (int i1 = 0; i1 < points.elem_vert_original[icv].size(); i1++)
-                fprintf(file, "%i ", points.elem_vert_original[icv][i1] + 1);
-            fprintf(file, "\n");
-        }
-    fclose(file);
-    cout << "\nwrite_temperature_tecplot_2D wrote " << output_file << "\n\n";
-}
-
-void write_navier_stokes_tecplot_temporal_header(POINTS &points, PARAMETERS &parameters)
-{
     string output_file = parameters.output_file_prefix + "_tecplot_temporal.plt";
-    FILE *file;
     file = fopen(output_file.c_str(), "w");
     if (parameters.dimension == 2)
-        fprintf(file, "VARIABLES=\"x\", \"y\", \"u_num\", \"v_num\", \"p_num\"\n");
+        fprintf(file, "VARIABLES=\"x\", \"y\"");
     else
-        fprintf(file, "VARIABLES=\"x\", \"y\", \"z\", \"u_num\", \"v_num\", \"w_num\", \"p_num\"\n");
+        fprintf(file, "VARIABLES=\"x\", \"y\", \"z\"");
+    for (int var = 0; var < variable_names.size(); var++)
+        fprintf(file, ", \"%s\"", variable_names[var].c_str());
+    fprintf(file, "\n");
     fclose(file);
 }
 
-void write_navier_stokes_tecplot_temporal_fields(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &u_num, Eigen::VectorXd &v_num, Eigen::VectorXd &w_num, Eigen::VectorXd &p_num, int it)
-{ //for 2D problems, provide any dummy entry in place of w_num
+void write_tecplot_temporal_variables(POINTS &points, PARAMETERS &parameters, vector<string> &variable_names, vector<Eigen::VectorXd *> &variable_pointers, int it)
+{
     int dim = parameters.dimension, ncv = 0, iv1;
     for (int icv = 0; icv < points.elem_vert_original.size(); icv++)
         if (points.elem_vert_original[icv].size() == dim + 1)
@@ -330,131 +423,111 @@ void write_navier_stokes_tecplot_temporal_fields(POINTS &points, PARAMETERS &par
     FILE *file;
     file = fopen(output_file.c_str(), "a");
     fprintf(file, "# Fields it: %i\n", it);
-    if (dim == 3)
+    if (dim == 2)
+        fprintf(file, "ZONE T=\"%.16g\"  DATAPACKING=POINT, NODES=%i, ELEMENTS=%i, ZONETYPE=FETRIANGLE\n", it * parameters.dt, points.nv_original, ncv);
+    else
+        fprintf(file, "ZONE T=\"%.16g\"  DATAPACKING=POINT, NODES=%i, ELEMENTS=%i, ZONETYPE=FETETRAHEDRON\n", it * parameters.dt, points.nv_original, ncv);
+
+    for (int iv0 = 0; iv0 < points.nv_original; iv0++)
     {
-        fprintf(file, "ZONE T=\"%.16g\", N=%i, E=%i, DATAPACKING = POINT, ZONETYPE = FETETRAHEDRON\n", parameters.dt * ((double)it), points.nv_original, ncv);
-        for (int iv0 = 0; iv0 < points.nv_original; iv0++)
-        {
-            iv1 = points.iv_original_nearest_vert[iv0];
-            fprintf(file, "%.16g %.16g %.16g", points.xyz_original[dim * iv0], points.xyz_original[dim * iv0 + 1], points.xyz_original[dim * iv0 + 2]);
-            fprintf(file, " %.16g %.16g %.16g %.16g", u_num[iv1], v_num[iv1], w_num[iv1], p_num[iv1]);
+        iv1 = points.iv_original_nearest_vert[iv0];
+        for (int i1 = 0; i1 < dim; i1++) //write x, y, z
+            fprintf(file, "%.16g ", points.xyz_original[dim * iv0 + i1]);
+        for (int var = 0; var < variable_pointers.size(); var++) //write variables
+            fprintf(file, "%.16g ", (*variable_pointers[var])[iv1]);
+        fprintf(file, "\n");
+    }
+
+    for (int icv = 0; icv < points.elem_vert_original.size(); icv++)
+        if (points.elem_vert_original[icv].size() == dim + 1)
+        { //triangles for 2D, tetrahedrons for 3D
+            for (int i1 = 0; i1 < points.elem_vert_original[icv].size(); i1++)
+                fprintf(file, "%i ", points.elem_vert_original[icv][i1] + 1);
             fprintf(file, "\n");
         }
+    fclose(file);
+}
+
+void write_tecplot_steady_variables(POINTS &points, PARAMETERS &parameters, vector<string> &variable_names, vector<Eigen::VectorXd *> &variable_pointers)
+{
+    int ncv = 0, iv1, dim = parameters.dimension;
+    for (int icv = 0; icv < points.elem_vert_original.size(); icv++)
+        if (points.elem_vert_original[icv].size() == dim + 1)
+            ncv++; //triangles for 2D, tetrahedrons for 3D
+    FILE *file;
+    string output_file = parameters.output_file_prefix + "_tecplot.plt";
+    file = fopen(output_file.c_str(), "w");
+    if (dim == 2)
+        fprintf(file, "VARIABLES=\"x\", \"y\"");
+    else
+        fprintf(file, "VARIABLES=\"x\", \"y\", \"z\"");
+    for (int var = 0; var < variable_names.size(); var++)
+        fprintf(file, ", \"%s\"", variable_names[var].c_str());
+    fprintf(file, "\n");
+    if (dim == 2)
+        fprintf(file, "ZONE T=\"%.16g\"  DATAPACKING=POINT, NODES=%i, ELEMENTS=%i, ZONETYPE=FETRIANGLE\n", 1.0, points.nv_original, ncv);
+    else
+        fprintf(file, "ZONE T=\"%.16g\"  DATAPACKING=POINT, NODES=%i, ELEMENTS=%i, ZONETYPE=FETETRAHEDRON\n", 1.0, points.nv_original, ncv);
+
+    for (int iv0 = 0; iv0 < points.nv_original; iv0++)
+    {
+        iv1 = points.iv_original_nearest_vert[iv0];
+        for (int i1 = 0; i1 < dim; i1++) //write x, y, z
+            fprintf(file, "%.16g ", points.xyz_original[dim * iv0 + i1]);
+        for (int var = 0; var < variable_pointers.size(); var++) //write variables
+            fprintf(file, "%.16g ", (*variable_pointers[var])[iv1]);
+        fprintf(file, "\n");
+    }
+
+    for (int icv = 0; icv < points.elem_vert_original.size(); icv++)
+        if (points.elem_vert_original[icv].size() == dim + 1)
+        { //triangles for 2D, tetrahedrons for 3D
+            for (int i1 = 0; i1 < points.elem_vert_original[icv].size(); i1++)
+                fprintf(file, "%i ", points.elem_vert_original[icv][i1] + 1);
+            fprintf(file, "\n");
+        }
+    fclose(file);
+    cout << "\nwrite_tecplot_steady_variables wrote " << output_file << "\n\n";
+}
+
+void write_csv_xyz(vector<double> &xyz, PARAMETERS &parameters, const char *file_name)
+{
+    int dim = parameters.dimension;
+    FILE *file;
+    file = fopen(file_name, "w");
+    if (dim == 2)
+    {
+        fprintf(file, "no,x,y\n");
+        for (int i1 = 0; i1 < (int)(xyz.size() / dim); i1++)
+            fprintf(file, "%i,%.16g,%.16g\n", i1, xyz[i1 * dim], xyz[i1 * dim + 1]);
     }
     else
     {
-        fprintf(file, "ZONE T=\"%.16g\", N=%i, E=%i, DATAPACKING = POINT, ZONETYPE = FETRIANGLE\n", parameters.dt * ((double)it), points.nv_original, ncv);
-        for (int iv0 = 0; iv0 < points.nv_original; iv0++)
-        {
-            iv1 = points.iv_original_nearest_vert[iv0];
-            fprintf(file, "%.16g %.16g", points.xyz_original[dim * iv0], points.xyz_original[dim * iv0 + 1]);
-            fprintf(file, " %.16g %.16g %.16g", u_num[iv1], v_num[iv1], p_num[iv1]);
-            fprintf(file, "\n");
-        }
+        fprintf(file, "no,x,y,z\n");
+        for (int i1 = 0; i1 < (int)(xyz.size() / dim); i1++)
+            fprintf(file, "%i,%.16g,%.16g,%.16g\n", i1, xyz[i1 * dim], xyz[i1 * dim + 1], xyz[i1 * dim + 2]);
     }
-
-    // if (write_connectivity_flag)
-    // { //vertices and connectivity written only first time
-    fprintf(file, "# Element Vertex Connectivity it: %i\n", it);
-    for (int icv = 0; icv < points.elem_vert_original.size(); icv++)
-        if (points.elem_vert_original[icv].size() == dim + 1)
-        {
-            for (int i1 = 0; i1 < points.elem_vert_original[icv].size(); i1++)
-                fprintf(file, "%i ", points.elem_vert_original[icv][i1] + 1);
-            fprintf(file, "\n");
-        }
-    // }
-    // else
-    //     fprintf(file, "CONNECTIVITYSHAREZONE=1\n"); //declare connectivity sharing
     fclose(file);
 }
 
-void write_navier_stokes_tecplot_2D(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &u_num, Eigen::VectorXd &v_num, Eigen::VectorXd &p_num)
+void write_csv_temporal_data_init(int size, const char *file_name)
 {
-    int ncv = 0, iv1, dim = parameters.dimension;
-    for (int icv = 0; icv < points.elem_vert_original.size(); icv++)
-        if (points.elem_vert_original[icv].size() == 3)
-            ncv++;
     FILE *file;
-    string output_file = parameters.output_file_prefix + "_tecplot.plt";
-    file = fopen(output_file.c_str(), "w");
-    fprintf(file, "VARIABLES=\"x\", \"y\", \"u_num\", \"v_num\", \"p_num\"\n");
-    fprintf(file, "ZONE T=\"%.16g\"  DATAPACKING=POINT, NODES=%i, ELEMENTS=%i, ZONETYPE=FETRIANGLE\n", 1.0, points.nv_original, ncv);
-    for (int iv0 = 0; iv0 < points.nv_original; iv0++)
-    {
-        iv1 = points.iv_original_nearest_vert[iv0];
-        fprintf(file, "%.16g %.16g", points.xyz_original[dim * iv0], points.xyz_original[dim * iv0 + 1]);
-        fprintf(file, " %.16g %.16g %.16g", u_num[iv1], v_num[iv1], p_num[iv1]);
-        fprintf(file, "\n");
-    }
-
-    for (int icv = 0; icv < points.elem_vert_original.size(); icv++)
-        if (points.elem_vert_original[icv].size() == 3)
-        {
-            for (int i1 = 0; i1 < points.elem_vert_original[icv].size(); i1++)
-                fprintf(file, "%i ", points.elem_vert_original[icv][i1] + 1);
-            fprintf(file, "\n");
-        }
+    file = fopen(file_name, "w");
+    fprintf(file, "time(s)");
+    for (int i1 = 0; i1 < size; i1++)
+        fprintf(file, ",%i", i1);
+    fprintf(file, "\n");
     fclose(file);
-    cout << "\nwrite_navier_stokes_tecplot_2D wrote " << output_file << "\n\n";
 }
 
-void write_temperature_tecplot_3D(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &T_ana, Eigen::VectorXd &T_num)
+void write_csv_temporal_data(Eigen::VectorXd &data, double time, const char *file_name)
 {
-    int ncv = 0, iv1, dim = parameters.dimension;
-    for (int icv = 0; icv < points.elem_vert_original.size(); icv++)
-        if (points.elem_vert_original[icv].size() == 4)
-            ncv++;
     FILE *file;
-    string output_file = parameters.output_file_prefix + "_tecplot.plt";
-    file = fopen(output_file.c_str(), "w");
-    fprintf(file, "VARIABLES=\"x\", \"y\", \"z\", \"T_num\", \"T_ana\", \"T_err\"\n");
-    fprintf(file, "ZONE T=\"%.16g\"  DATAPACKING=POINT, NODES=%i, ELEMENTS=%i, ZONETYPE=FETETRAHEDRON\n", 1.0, points.nv_original, ncv);
-    for (int iv0 = 0; iv0 < points.nv_original; iv0++)
-    {
-        iv1 = points.iv_original_nearest_vert[iv0];
-        fprintf(file, "%.16g %.16g %.16g", points.xyz_original[dim * iv0], points.xyz_original[dim * iv0 + 1], points.xyz_original[dim * iv0 + 2]);
-        fprintf(file, " %.16g %.16g %.16g", T_num[iv1], T_ana[iv1], fabs(T_num[iv1] - T_ana[iv1]));
-        fprintf(file, "\n");
-    }
-
-    for (int icv = 0; icv < points.elem_vert_original.size(); icv++)
-        if (points.elem_vert_original[icv].size() == 4)
-        {
-            for (int i1 = 0; i1 < points.elem_vert_original[icv].size(); i1++)
-                fprintf(file, "%i ", points.elem_vert_original[icv][i1] + 1);
-            fprintf(file, "\n");
-        }
+    file = fopen(file_name, "a");
+    fprintf(file, "%.16g", time);
+    for (int i1 = 0; i1 < data.rows(); i1++)
+        fprintf(file, ",%.16g", data[i1]);
+    fprintf(file, "\n");
     fclose(file);
-    cout << "\nwrite_temperature_tecplot_3D wrote " << output_file << "\n\n";
-}
-
-void write_temperature_tecplot_3D(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &T_num)
-{
-    int ncv = 0, iv1, dim = parameters.dimension;
-    for (int icv = 0; icv < points.elem_vert_original.size(); icv++)
-        if (points.elem_vert_original[icv].size() == 4)
-            ncv++;
-    FILE *file;
-    string output_file = parameters.output_file_prefix + "_tecplot.plt";
-    file = fopen(output_file.c_str(), "w");
-    fprintf(file, "VARIABLES=\"x\", \"y\", \"z\", \"T_num\"\n");
-    fprintf(file, "ZONE T=\"%.16g\"  DATAPACKING=POINT, NODES=%i, ELEMENTS=%i, ZONETYPE=FETETRAHEDRON\n", 1.0, points.nv_original, ncv);
-    for (int iv0 = 0; iv0 < points.nv_original; iv0++)
-    {
-        iv1 = points.iv_original_nearest_vert[iv0];
-        fprintf(file, "%.16g %.16g %.16g", points.xyz_original[dim * iv0], points.xyz_original[dim * iv0 + 1], points.xyz_original[dim * iv0 + 2]);
-        fprintf(file, " %.16g", T_num[iv1]);
-        fprintf(file, "\n");
-    }
-
-    for (int icv = 0; icv < points.elem_vert_original.size(); icv++)
-        if (points.elem_vert_original[icv].size() == 4)
-        {
-            for (int i1 = 0; i1 < points.elem_vert_original[icv].size(); i1++)
-                fprintf(file, "%i ", points.elem_vert_original[icv][i1] + 1);
-            fprintf(file, "\n");
-        }
-    fclose(file);
-    cout << "\nwrite_temperature_tecplot_3D wrote " << output_file << "\n\n";
 }

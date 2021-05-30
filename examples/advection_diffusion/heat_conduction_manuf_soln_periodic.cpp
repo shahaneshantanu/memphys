@@ -1,5 +1,5 @@
 //Author: Dr. Shantanu Shahane
-//compile: time make heat_conduction_manuf_soln
+//compile: time make heat_conduction_manuf_soln_periodic
 //execute: time ./out
 #include "../../header_files/class.hpp"
 #include "../../header_files/postprocessing_functions.hpp"
@@ -9,14 +9,17 @@ int main(int argc, char *argv[])
 {
     MPI_Init(&argc, &argv);
     clock_t t0 = clock();
-    double wv = 1.0; //wavenumber
+    double wv = 2.0 * M_PI; //wavenumber
 
-    string meshfile = "/media/shantanu/Data/All Simulation Results/Meshless_Methods/CAD_mesh_files/Square/gmsh/Square_n_10_unstruc.msh"; //2D example
-    // string meshfile = "/media/shantanu/Data/All Simulation Results/Meshless_Methods/CAD_mesh_files/cuboid/Cuboid_n_10_unstruc.msh"; //3D example
+    string meshfile = "/media/shantanu/Data/All Simulation Results/Meshless_Methods/CAD_mesh_files/Square/gmsh/Square_n_40_unstruc.msh"; //2D example
+    // string meshfile = "/media/shantanu/Data/All Simulation Results/Meshless_Methods/CAD_mesh_files/cuboid/Cuboid_n_40_unstruc.msh"; //3D example
 
     PARAMETERS parameters("parameters_file.csv", meshfile);
     POINTS points(parameters);
+    vector<string> periodic_axis{"y", "x"};
+    points.set_periodic_bc(parameters, periodic_axis);
     CLOUD cloud(points, parameters);
+
     Eigen::VectorXd T_num_new;
     vector<bool> dirichlet_flag;
     for (int iv = 0; iv < points.nv; iv++)

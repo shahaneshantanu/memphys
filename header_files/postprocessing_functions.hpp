@@ -31,24 +31,32 @@ void write_simulation_details(POINTS &points, CLOUD &cloud, PARAMETERS &paramete
 
 void write_iteration_details(PARAMETERS &parameters);
 
+void calc_navier_stokes_residuals_2D(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &u, Eigen::VectorXd &v, Eigen::VectorXd &p);
+
+void calc_navier_stokes_residuals_2D(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &u, Eigen::VectorXd &v, Eigen::VectorXd &p, Eigen::VectorXd &body_force_x, Eigen::VectorXd &body_force_y);
+
+void calc_navier_stokes_errors_2D(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &u_ana, Eigen::VectorXd &v_ana, Eigen::VectorXd &p_ana, Eigen::VectorXd &u_num, Eigen::VectorXd &v_num, Eigen::VectorXd &p_num);
+
+void calc_navier_stokes_residuals_3D(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &u, Eigen::VectorXd &v, Eigen::VectorXd &w, Eigen::VectorXd &p);
+
+void calc_navier_stokes_residuals_3D(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &u, Eigen::VectorXd &v, Eigen::VectorXd &w, Eigen::VectorXd &p, Eigen::VectorXd &body_force_x, Eigen::VectorXd &body_force_y, Eigen::VectorXd &body_force_z);
+
+void calc_navier_stokes_errors_3D(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &u_ana, Eigen::VectorXd &v_ana, Eigen::VectorXd &w_ana, Eigen::VectorXd &p_ana, Eigen::VectorXd &u_num, Eigen::VectorXd &v_num, Eigen::VectorXd &w_num, Eigen::VectorXd &p_num);
+
 void write_navier_stokes_errors_2D(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &u_ana, Eigen::VectorXd &v_ana, Eigen::VectorXd &p_ana, Eigen::VectorXd &u_num, Eigen::VectorXd &v_num, Eigen::VectorXd &p_num);
 
 void write_navier_stokes_residuals_2D(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &u, Eigen::VectorXd &v, Eigen::VectorXd &p, string output_file_suffix);
 
-void write_navier_stokes_tecplot_2D(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &u_ana, Eigen::VectorXd &v_ana, Eigen::VectorXd &p_ana, Eigen::VectorXd &u_num, Eigen::VectorXd &v_num, Eigen::VectorXd &p_num);
+void write_tecplot_steady_variables(POINTS &points, PARAMETERS &parameters, vector<string> &variable_names, vector<Eigen::VectorXd *> &variable_pointers);
 
-void write_temperature_tecplot_2D(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &T_ana, Eigen::VectorXd &T_num);
+void write_tecplot_temporal_variables_header(POINTS &points, PARAMETERS &parameters, vector<string> &variable_names);
 
-void write_navier_stokes_tecplot_2D(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &u_num, Eigen::VectorXd &v_num, Eigen::VectorXd &p_num);
+void write_tecplot_temporal_variables(POINTS &points, PARAMETERS &parameters, vector<string> &variable_names, vector<Eigen::VectorXd *> &variable_pointers, int it);
 
-void write_navier_stokes_tecplot_temporal_header(POINTS &points, PARAMETERS &parameters);
+void write_csv_xyz(vector<double> &vect, PARAMETERS &parameters, const char *file_name);
 
-void write_navier_stokes_tecplot_temporal_fields(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &u_num, Eigen::VectorXd &v_num, Eigen::VectorXd &w_num, Eigen::VectorXd &p_num, int it);
+void write_csv_temporal_data_init(int size, const char *file_name);
 
-void write_temperature_tecplot_2D(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &T_num);
-
-void write_temperature_tecplot_3D(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &T_ana, Eigen::VectorXd &T_num);
-
-void write_temperature_tecplot_3D(POINTS &points, PARAMETERS &parameters, Eigen::VectorXd &T_num);
+void write_csv_temporal_data(Eigen::VectorXd &data, double time, const char *file_name);
 
 #endif

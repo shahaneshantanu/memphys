@@ -26,9 +26,7 @@ out
 *.asc
 *.vtk
 *.mat
-*.msh
 *.opcast
-*.geo
 profiling.txt
 comp_exec_UQ.sh
 *.aux

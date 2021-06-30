@@ -11,10 +11,8 @@ int main(int argc, char *argv[])
     clock_t t0 = clock();
     double T_init = 1000.0, T_wall = 700.0;
     int tecplot_it_frequency = 100, temporal_order = 2;
-    // string meshfile = "/media/shantanu/Data/All Simulation Results/Meshless_Methods/CAD_mesh_files/solidification/Square/Square_n_20_unstruc.msh";
-    string meshfile = "/media/shantanu/Data/All Simulation Results/Meshless_Methods/CAD_mesh_files/solidification/complex_2D/mesh_n_15_r_5.msh";
-    // string meshfile = "/media/shantanu/Data/All Simulation Results/Meshless_Methods/CAD_mesh_files/solidification/shaft_holder/mesh_maxelem_3.msh";
-    // string meshfile = "/media/shantanu/Data/All Simulation Results/Meshless_Methods/CAD_mesh_files/solidification/mixer_pipe/mesh_maxelem_8.msh"; //does not work: gives memory fault in function "re_order_points(points, parameters)": not sure about reason
+    string meshfile = "../../gmsh_files/solidification/complex_2D/mesh_n_15_r_5.msh";
+    // string meshfile = "../../gmsh_files/solidification/shaft_holder/mesh_maxelem_5.msh";
     PARAMETERS parameters("parameters_file.csv", meshfile);
     int dim = parameters.dimension;
     parameters.Courant = parameters.Courant / ((double)temporal_order); //Adam-Bashforth has half stability than explicit Euler;

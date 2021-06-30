@@ -64,8 +64,7 @@ int main(int argc, char *argv[])
 {
     MPI_Init(&argc, &argv);
     clock_t t0 = clock();
-    PARAMETERS parameters("parameters_file.csv", "/media/shantanu/Data/All Simulation Results/Meshless_Methods/CAD_mesh_files/bellows/h_0p5_lambda_3_amp_0p3_lx_0_nb_1_n_15.msh");
-    // PARAMETERS parameters("parameters_file.csv", "/media/shantanu/Data/All Simulation Results/Meshless_Methods/CAD_mesh_files/bellows/h_0p6_lambda_2p8_amp_0p35_lx_0_nb_1_n_15.msh");
+    PARAMETERS parameters("parameters_file.csv", "../../gmsh_files/bellows/h_0p5_lambda_3_amp_0p3_lx_0_nb_1_n_15.msh");
     int dim = parameters.dimension, temporal_order = 2;
     double iterative_tolerance = 1E-4; //parameters.steady_tolerance;
     int precond_freq_it = 10000, n_outer_iter = 10;

@@ -9,9 +9,8 @@ int main(int argc, char *argv[])
 {
     MPI_Init(&argc, &argv);
     clock_t t0 = clock();
-    PARAMETERS parameters("parameters_file.csv", "/media/shantanu/Data/All Simulation Results/Meshless_Methods/CAD_mesh_files/hole_geometries/eccentric_circle_in_circle/annulus_opencasc_n_30.msh");
+    PARAMETERS parameters("parameters_file.csv", "../../gmsh_files/hole_geometries/eccentric_circle_in_circle/annulus_opencasc_n_30.msh");
     int temporal_order = 1;
-    parameters.Courant = parameters.Courant / ((double)temporal_order); //Adam-Bashforth has half stability than explicit Euler
 
     double Re = 50.0, r_i = 1.0 / 3.0, u_theta_i = 0.5;
     parameters.rho = 10.0, parameters.mu = parameters.rho * u_theta_i * r_i / Re;

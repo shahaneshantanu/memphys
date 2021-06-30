@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
 {
     MPI_Init(&argc, &argv);
     clock_t t0 = clock();
-    PARAMETERS parameters("parameters_file.csv", "/media/shantanu/Data/All Simulation Results/Meshless_Methods/CAD_mesh_files/hole_geometries/double_circle_in_ellipse/mesh_n_100.msh");
+    PARAMETERS parameters("parameters_file.csv", "../../gmsh_files/hole_geometries/double_circle_in_ellipse/mesh_n_80.msh");
     double iterative_tolerance = 1E-5;
     int precond_freq_it = 10000, n_outer_iter = 10;
     double Re = 40.0, omega_i = 1.0, r_i = 0.25, u_theta = omega_i * r_i;

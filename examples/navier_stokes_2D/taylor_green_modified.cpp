@@ -20,10 +20,9 @@ int main(int argc, char *argv[])
 {
     MPI_Init(&argc, &argv);
     clock_t t0 = clock();
-    PARAMETERS parameters("parameters_file.csv", "/media/shantanu/Data/All Simulation Results/Meshless_Methods/CAD_mesh_files/Square/gmsh/Square_n_40_unstruc.msh");
+    PARAMETERS parameters("parameters_file.csv", "../../gmsh_files/Square/Square_n_40_unstruc.msh");
 
     int dim = parameters.dimension, temporal_order = 2;
-    // parameters.Courant = parameters.Courant / ((double)temporal_order); //Adam-Bashforth has half stability than explicit Euler
     double iterative_tolerance = 1E-5; //parameters.steady_tolerance;
     int precond_freq_it = 10000, n_outer_iter = 5;
     double Re = 100.0, t_end = 4.0;

@@ -37,15 +37,10 @@ cloud.o : ../../header_files/cloud.cpp ../../header_files/class.hpp ../../header
 
 ########### Individual code files
 
-interpolate_check.o : interpolate_check.cpp ../../header_files/class.hpp ../../header_files/general_functions.hpp
-	$(CC) $(CFLAGS) $(LFLAGS) $(LIBS) -I $(INCLUDE) interpolate_check.cpp
-interpolate_check : $(OBJS) interpolate_check.o
-	$(CC) $(PROFLAGS) -o out interpolate_check.o $(OBJS) $(LIBS)
-
-check_coeff.o : check_coeff.cpp ../../header_files/class.hpp ../../header_files/general_functions.hpp
-	$(CC) $(CFLAGS) $(LFLAGS) $(LIBS) -I $(INCLUDE) check_coeff.cpp
-check_coeff : $(OBJS) check_coeff.o
-	$(CC) $(PROFLAGS) -o out check_coeff.o $(OBJS) $(LIBS)
+interpolation.o : interpolation.cpp ../../header_files/class.hpp ../../header_files/general_functions.hpp
+	$(CC) $(CFLAGS) $(LFLAGS) $(LIBS) -I $(INCLUDE) interpolation.cpp
+interpolation : $(OBJS) interpolation.o
+	$(CC) $(PROFLAGS) -o out interpolation.o $(OBJS) $(LIBS)
 
 ########### Individual code completed
 

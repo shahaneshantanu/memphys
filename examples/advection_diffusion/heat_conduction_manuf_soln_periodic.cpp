@@ -11,8 +11,8 @@ int main(int argc, char *argv[])
     clock_t t0 = clock();
     double wv = 2.0 * M_PI; //wavenumber
 
-    string meshfile = "/media/shantanu/Data/All Simulation Results/Meshless_Methods/CAD_mesh_files/Square/gmsh/Square_n_40_unstruc.msh"; //2D example
-    // string meshfile = "/media/shantanu/Data/All Simulation Results/Meshless_Methods/CAD_mesh_files/cuboid/Cuboid_n_40_unstruc.msh"; //3D example
+    string meshfile = "../../gmsh_files/Square/Square_n_40_unstruc.msh"; //2D example
+    // string meshfile = "../../gmsh_files/cuboid/Cuboid_n_40_unstruc.msh"; //3D example
 
     PARAMETERS parameters("parameters_file.csv", meshfile);
     POINTS points(parameters);

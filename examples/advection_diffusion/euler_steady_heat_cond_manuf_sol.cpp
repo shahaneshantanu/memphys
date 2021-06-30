@@ -10,7 +10,7 @@ int main(int argc, char *argv[])
     MPI_Init(&argc, &argv);
     clock_t t0 = clock();
 
-    string meshfile = "/media/shantanu/Data/All Simulation Results/Meshless_Methods/CAD_mesh_files/Square/gmsh/Square_n_40_unstruc.msh";
+    string meshfile = "../../gmsh_files/Square/Square_n_40_unstruc.msh";
     double alpha = 0.1, max_err, l1_err, x, y;
 
     PARAMETERS parameters("parameters_file.csv", meshfile);

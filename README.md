@@ -19,16 +19,12 @@ The [examples](https://github.com/shahaneshantanu/memphys/tree/main/examples) fo
 * Miscellaneous codes for analysis of stencils: [miscellaneous](https://github.com/shahaneshantanu/memphys/tree/main/examples/miscellaneous)
 * Solidification problems: [solidification](https://github.com/shahaneshantanu/memphys/tree/main/examples/solidification)
 
-## Cite
-If you use this software, please cite the following [research paper](https://arxiv.org/abs/2010.01702)<br/>
-Shahane, S., Radhakrishnan, A., & Vanka, S. P. (2020). A High-Order Accurate Meshless Method for Solution of Incompressible Fluid Flow Problems. arXiv preprint arXiv:2010.01702.<br/>
-BibTeX entry:<br/>
-@article{shahane2020high,
-  title={A High-Order Accurate Meshless Method for Solution of Incompressible Fluid Flow Problems},
-  author={Shahane, Shantanu and Radhakrishnan, Anand and Vanka, Surya Pratap},
-  journal={arXiv preprint arXiv:2010.01702},
-  year={2020}
-}
+## List of Publications
+If you use MeMPhyS, please cite the following research papers:
+1. N Bartwal, S Shahane, S Roy, SP Vanka (2021). Application of a High Order Accurate Meshless Method to Solution of Heat Conduction in Complex Geometries: [arXiv](https://arxiv.org/abs/2106.08535)<br/>
+2. S Shahane, SP Vanka (2021). A Semi-Implicit Meshless Method for Incompressible Flows in Complex Geometries: [arXiv](https://arxiv.org/abs/2106.07616)<br/>
+3. A Radhakrishnan, M Xu, S Shahane, SP Vanka (2021). A Non-Nested Multilevel Method for Meshless Solution of the Poisson Equation in Heat Transfer and Fluid Flow: [arXiv](https://arxiv.org/abs/2104.13758)<br/>
+4. S Shahane, A Radhakrishnan, SP Vanka (2020). A High-Order Accurate Meshless Method for Solution of Incompressible Fluid Flow Problems: [arXiv](https://arxiv.org/abs/2010.01702)<br/>
 
 ## Credits:
 Dr. Shantanu Shahane, Postdoctoral Research Associate (sshahan2@illinois.edu)<br/>

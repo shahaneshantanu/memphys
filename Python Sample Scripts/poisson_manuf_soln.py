@@ -30,7 +30,7 @@ for i1 in range(len(meshfiles)):
     poisson_matrix = solf.poisson_matrix(parameters, points, cloud, dirichlet_flag)
 
     T_ana = np.sin(wv*points.xyz[:,0]) * np.sin(wv*points.xyz[:,1])
-    rhs = -wv*wv * parameters.dim * T_ana
+    rhs = -2*wv*wv * T_ana
     rhs[points.boundary_flag * dirichlet_flag] = T_ana[points.boundary_flag * dirichlet_flag] #dirichlet BC
 
     solver = spla.factorized(poisson_matrix)
